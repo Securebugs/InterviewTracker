@@ -1,0 +1,2643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sparix Interview Dashboard</title>
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..700,0..1,-50..200&display=swap">
+<style>
+  :root {
+    --bg: #f3efe8;
+    --surface: #ffffff;
+    --surface2: #faf8f4;
+    --border: #e5dfd4;
+    --text: #1c1917;
+    --muted: #78716c;
+    --accent: #1c1917;
+    --teal: #0f766e;
+    --teal-soft: #ccfbf1;
+    --amber: #b45309;
+    --amber-soft: #fef3c7;
+    --rose: #be123c;
+    --rose-soft: #ffe4e6;
+    --blue: #1d4ed8;
+    --blue-soft: #dbeafe;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(28,25,23,.04), 0 8px 24px rgba(28,25,23,.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    line-height: 1.45;
+  }
+
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24;
+    vertical-align: middle;
+  }
+  .mi-sm { font-size: 18px; }
+  .mi-md { font-size: 22px; }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    background: #1c1917;
+    color: #fafaf9;
+    padding: 28px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .brand {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    padding: 0 10px;
+  }
+  .brand span { color: #a8a29e; font-weight: 500; display: block; font-size: 12px; margin-top: 4px; }
+
+  .nav-btn {
+    border: none;
+    background: transparent;
+    color: #a8a29e;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .nav-btn.active { background: rgba(255,255,255,.1); color: #fff; }
+  .nav-btn .material-symbols-outlined { font-size: 20px; opacity: .9; }
+
+  .sidebar-foot {
+    margin-top: auto;
+    padding: 14px 10px 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 11px;
+    color: #78716c;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sync-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #57534e;
+    flex-shrink: 0;
+  }
+  .sync-dot.ok { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.25); }
+  .sync-dot.err { background: #f87171; }
+
+  .main {
+    padding: 16px 22px 16px;
+    overflow: hidden;
+    height: 100vh;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .main > .panel.active {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+  }
+
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 22px; font-weight: 750; letter-spacing: -0.03em; }
+  .topbar p { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: .15s;
+  }
+  .btn:hover { background: #fff; box-shadow: var(--shadow); }
+  .btn-dark { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-dark:hover { opacity: .92; background: var(--accent); }
+  .btn-teal { background: var(--teal-soft); border-color: #99f6e4; color: var(--teal); }
+  .btn-sm { padding: 7px 12px; font-size: 12px; }
+  .btn .material-symbols-outlined { font-size: 18px; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .stat .label {
+    font-size: 12px; font-weight: 650; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat .label .material-symbols-outlined { font-size: 16px; }
+  .stat .value { font-size: 28px; font-weight: 750; margin-top: 6px; letter-spacing: -0.03em; }
+  .stat .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 8px 0 14px;
+  }
+  .section-head h2 { font-size: 18px; font-weight: 700; }
+  .pill {
+    font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--amber-soft); color: var(--amber);
+  }
+
+  .candidate-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .cand-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .cand-card-head {
+    padding: 16px 18px 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .cand-card-head h3 { font-size: 15px; font-weight: 700; }
+  .cand-card-head .role-tag {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; margin-top: 3px;
+  }
+  .cand-card-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .slot-chip {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+  }
+  .slot-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border-radius: 7px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .slot-text { flex: 1; font-weight: 550; color: #292524; line-height: 1.35; }
+  .slot-empty { color: var(--muted); font-style: italic; font-weight: 500; }
+
+  .cand-card-foot {
+    padding: 10px 14px 14px;
+    display: flex; gap: 8px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+  .empty-state .material-symbols-outlined {
+    font-size: 40px;
+    color: #a8a29e;
+    margin-bottom: 12px;
+  }
+  .empty-state p { font-size: 14px; margin-bottom: 16px; }
+
+  .sched-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .sched-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 180px 140px auto;
+    gap: 12px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .sched-row .name { font-weight: 700; font-size: 14px; }
+  .sched-row .meta { font-size: 12px; color: var(--muted); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+  }
+  .badge .material-symbols-outlined { font-size: 14px; }
+  .badge.set { background: var(--teal-soft); color: var(--teal); }
+  .badge.done { background: var(--blue-soft); color: var(--blue); }
+  .badge.resched { background: var(--rose-soft); color: var(--rose); }
+  .badge.pend { background: var(--amber-soft); color: var(--amber); }
+
+  .upcoming-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+    max-height: 18vh;
+    overflow-y: auto;
+  }
+  .up-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .up-card.soon {
+    border-color: #fcd34d;
+    background: linear-gradient(180deg, #fffbeb 0%, #fff 60%);
+  }
+  .up-card .when {
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .up-card .when .material-symbols-outlined { font-size: 16px; }
+  .up-card .who { font-size: 16px; font-weight: 750; margin: 6px 0 4px; }
+  .up-card .rec { font-size: 13px; color: var(--muted); }
+
+  .settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+    max-width: 720px;
+  }
+  .settings-card h3 { font-size: 16px; margin-bottom: 6px; }
+  .settings-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--muted);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: .03em;
+  }
+  .field select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    background: var(--bg);
+  }
+  .field input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    background: var(--bg);
+  }
+  .steps {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--surface2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .steps ol { padding-left: 18px; }
+  .steps li { margin: 8px 0; }
+  .steps code {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(28,25,23,.35);
+    z-index: 50;
+    align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow: auto;
+    padding: 24px;
+    box-shadow: 0 24px 48px rgba(0,0,0,.18);
+  }
+  .modal h3 {
+    font-size: 18px; font-weight: 750; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .modal label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--muted);
+    margin: 12px 0 5px;
+  }
+  .modal input, .modal select {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    background: var(--bg);
+  }
+
+  .slot-block {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: var(--surface2);
+    margin-bottom: 10px;
+  }
+  .slot-block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .slot-block-head span {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .slot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .slot-grid .full { grid-column: 1 / -1; }
+  .slot-grid label { margin-top: 0; }
+
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;
+  }
+
+
+  .alert-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(28,25,23,.55);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .alert-overlay.open { display: flex; }
+  .alert-popup {
+    background: #fff;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.28);
+    overflow: hidden;
+    border: 2px solid #1c1917;
+    animation: alertPop .25s ease;
+  }
+  @keyframes alertPop {
+    from { transform: scale(.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .alert-popup-head {
+    background: #1c1917;
+    color: #fafaf9;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .alert-popup-head h3 {
+    font-size: 15px; font-weight: 700; margin: 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .alert-popup-head h3 .material-symbols-outlined { font-size: 22px; color: #fbbf24; }
+  .alert-timer {
+    font-size: 12px; font-weight: 700; color: #a8a29e;
+    font-variant-numeric: tabular-nums;
+  }
+  .alert-popup-body { padding: 16px 18px; max-height: 50vh; overflow-y: auto; }
+  .alert-person {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg);
+    margin-bottom: 10px;
+  }
+  .alert-person:last-child { margin-bottom: 0; }
+  .alert-person .ap-name { font-weight: 750; font-size: 15px; }
+  .alert-person .ap-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .alert-popup-foot {
+    padding: 12px 18px 16px;
+    display: flex; gap: 10px; justify-content: flex-end;
+    border-top: 1px solid var(--border);
+  }
+  .alert-popup-foot .btn-dark { min-width: 120px; justify-content: center; }
+
+  body.is-user .admin-only { display: none !important; }
+
+  .toast {
+
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1c1917; color: #fff;
+    padding: 13px 18px; border-radius: 12px;
+    font-size: 13px; font-weight: 600;
+    opacity: 0; transform: translateY(10px);
+    transition: .25s; z-index: 100; max-width: 340px;
+    pointer-events: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show { opacity: 1; transform: none; }
+  .toast .material-symbols-outlined { font-size: 18px; }
+
+
+  .sub-toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin-bottom: 16px;
+  }
+  .sub-toolbar input, .sub-toolbar select {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+    font-size: 13px; background: var(--surface);
+  }
+  .sub-toolbar input { min-width: 200px; flex: 1; }
+  .sub-table-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto;
+    max-height: calc(100vh - 160px);
+  }
+  .sub-table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 1100px;
+  }
+  .sub-table th {
+    text-align: left; padding: 12px 12px; background: var(--surface2);
+    border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .03em; color: var(--muted);
+    position: sticky; top: 0; z-index: 1;
+    white-space: nowrap;
+  }
+  .sub-toolbar select, .sub-toolbar input[type="date"] {
+    max-width: 160px;
+  }
+
+  .sub-table td {
+    padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top;
+    max-width: 220px;
+  }
+  .sub-table tr:hover td { background: #faf8f4; }
+  .sub-table .jpc { font-weight: 700; white-space: nowrap; }
+  .sub-table .role-cell { max-width: 200px; }
+  .sub-table .update-cell { max-width: 260px; font-size: 12px; color: #44403c; }
+  .status-chip {
+    display: inline-flex; padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .status-chip.submitted { background: var(--blue-soft); color: var(--blue); }
+  .status-chip.screening { background: var(--amber-soft); color: var(--amber); }
+  .status-chip.onhold { background: #f5e6ff; color: #7c3aed; }
+  .status-chip.rejected { background: var(--rose-soft); color: var(--rose); }
+  .status-chip.other { background: var(--bg); color: var(--muted); }
+
+
+  /* Analytics dashboard */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+  }
+  .kpi .k-label {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .kpi .k-label .material-symbols-outlined { font-size: 15px; }
+  .kpi .k-value {
+    font-size: 20px; font-weight: 750; margin-top: 4px;
+    letter-spacing: -0.03em; color: var(--text);
+  }
+  .kpi .k-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .kpi.accent-dark { background: #1c1917; border-color: #1c1917; }
+  .kpi.accent-dark .k-label, .kpi.accent-dark .k-sub { color: #a8a29e; }
+  .kpi.accent-dark .k-value { color: #fafaf9; }
+  .kpi.accent-stone { background: #e7e5e4; border-color: #d6d3d1; }
+  .kpi.accent-warm { background: #f5f0e8; border-color: #e8e0d4; }
+
+  .dash-row {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+    min-height: 0;
+  }
+  .dash-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 12px 14px;
+    max-height: min(32vh, 280px);
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .dash-card h3 {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dash-card h3 .material-symbols-outlined { font-size: 18px; color: var(--text); }
+
+  .status-list { display: flex; flex-direction: column; gap: 10px; }
+  .status-row {
+    display: grid; grid-template-columns: 100px 1fr 36px;
+    gap: 10px; align-items: center; font-size: 13px;
+  }
+  .status-row .s-name { font-weight: 600; color: #44403c; }
+  .status-row .s-bar {
+    height: 10px; background: #f5f5f4; border-radius: 999px; overflow: hidden;
+  }
+  .status-row .s-fill {
+    height: 100%; border-radius: 999px; background: #1c1917;
+  }
+  .status-row .s-fill.c1 { background: #1c1917; }
+  .status-row .s-fill.c2 { background: #44403c; }
+  .status-row .s-fill.c3 { background: #78716c; }
+  .status-row .s-fill.c4 { background: #a8a29e; }
+  .status-row .s-fill.c5 { background: #d6d3d1; }
+  .status-row .s-fill.c6 { background: #b45309; }
+  .status-row .s-count { font-weight: 750; text-align: right; }
+
+  .chart-wrap {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .chart-wrap svg { flex-shrink: 0; }
+  .legend { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-swatch {
+    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
+
+  .recruiter-list { display: flex; flex-direction: column; gap: 12px; }
+  .rec-row {
+    display: grid; grid-template-columns: 1fr 48px;
+    gap: 8px; align-items: center;
+  }
+  .rec-row .rec-name { font-size: 13px; font-weight: 600; }
+  .rec-row .rec-meta { font-size: 11px; color: var(--muted); }
+  .rec-bar-track {
+    grid-column: 1 / -1; height: 8px; background: #f5f5f4;
+    border-radius: 999px; overflow: hidden;
+  }
+  .rec-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #1c1917, #57534e);
+    border-radius: 999px;
+  }
+  .rec-count { font-weight: 750; font-size: 14px; text-align: right; }
+
+  .funnel-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .funnel-item {
+    text-align: center; padding: 14px 10px;
+    background: var(--bg); border-radius: 12px; border: 1px solid var(--border);
+  }
+  .funnel-item .f-val { font-size: 22px; font-weight: 750; }
+  .funnel-item .f-lab { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    .dash-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .funnel-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel { display: none; }
+
+
+  .panel.active { display: block; }
+
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar {
+      flex-direction: row; flex-wrap: wrap; align-items: center;
+      gap: 6px; padding: 14px;
+    }
+    .brand { margin: 0 12px 0 0; }
+    .sidebar-foot { display: none; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .sched-row { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .main { padding: 18px 14px 40px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .candidate-grid { grid-template-columns: 1fr; }
+    .slot-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">Sparix Global<span>Talent Interview Dashboard</span></div>
+    <button type="button" class="nav-btn active" data-panel="overview">
+      <span class="material-symbols-outlined">dashboard</span> Overview
+    </button>
+    <button type="button" class="nav-btn" data-panel="availability">
+      <span class="material-symbols-outlined">event_available</span> Availability
+    </button>
+    <button type="button" class="nav-btn" data-panel="scheduled">
+      <span class="material-symbols-outlined">calendar_month</span> Scheduled
+    </button>
+    <button type="button" class="nav-btn" data-panel="submissions">
+      <span class="material-symbols-outlined">table_chart</span> Submissions
+    </button>
+    <button type="button" class="nav-btn" data-panel="alerts">
+      <span class="material-symbols-outlined">notifications</span> Alerts
+    </button>
+    <button type="button" class="nav-btn" data-panel="settings">
+      <span class="material-symbols-outlined">settings</span> Sheet &amp; setup
+    </button>
+    <div class="sidebar-foot">
+      <div id="userBadge" style="margin-bottom:10px;font-size:12px;color:#d6d3d1;line-height:1.35">
+        <div style="color:#a8a29e;font-size:10px;text-transform:uppercase;letter-spacing:.04em">Signed in</div>
+        <div id="userBadgeName">—</div>
+        <div id="userBadgeRole" style="color:#a8a29e;font-size:11px"></div>
+      </div>
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">Not connected</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="panel active" id="panel-overview">
+      <div class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Submission analytics · monochrome overview</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-teal" id="enableNotifyBtn">
+            <span class="material-symbols-outlined">notifications_active</span> Enable alerts
+          </button>
+          <button type="button" class="btn btn-dark" id="syncNowBtn">
+            <span class="material-symbols-outlined">sync</span> Sync now
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="dash-row">
+        <div class="dash-card">
+          <h3><span class="material-symbols-outlined">donut_large</span> Interview status</h3>
+          <div class="chart-wrap">
+            <div id="statusPie"></div>
+            <div class="legend" id="statusLegend"></div>
+          </div>
+          <div class="status-list" id="statusBars" style="margin-top:18px"></div>
+        </div>
+        <div class="dash-card">
+          <h3><span class="material-symbols-outlined">group</span> Recruiter performance</h3>
+          <div class="recruiter-list" id="recruiterPerf"></div>
+        </div>
+      </div>
+
+      <div class="dash-row">
+        <div class="dash-card">
+          <h3><span class="material-symbols-outlined">trending_up</span> Update coverage</h3>
+          <div class="funnel-grid" id="updateFunnel"></div>
+          <div id="updateBars" style="margin-top:18px"></div>
+        </div>
+        <div class="dash-card">
+          <h3><span class="material-symbols-outlined">apartment</span> JPCs worked</h3>
+          <div id="jpcBars"></div>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:8px"><h2>Next interviews</h2></div>
+      <div class="upcoming-grid" id="overviewUpcoming"></div>
+    </section>
+
+<section class="panel" id="panel-availability">
+      <div class="topbar">
+        <div>
+          <h1>Availability slots</h1>
+          <p>Pick date and time for each slot. Columns grow automatically on the sheet.</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="addCandBtn">
+            <span class="material-symbols-outlined">person_add</span> Candidate
+          </button>
+          <button type="button" class="btn btn-dark" id="syncNowBtn2">
+            <span class="material-symbols-outlined">cloud_upload</span> Sync to sheet
+          </button>
+        </div>
+      </div>
+      <div id="availabilityMount"></div>
+    </section>
+
+    <section class="panel" id="panel-scheduled">
+      <div class="topbar">
+        <div>
+          <h1>Scheduled interviews</h1>
+          <p>Date and time picker for interview time</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="addSchedBtn">
+            <span class="material-symbols-outlined">add</span> Interview
+          </button>
+          <button type="button" class="btn btn-dark" id="syncNowBtn3">
+            <span class="material-symbols-outlined">cloud_upload</span> Sync to sheet
+          </button>
+        </div>
+      </div>
+      <div class="sched-list" id="schedList"></div>
+    </section>
+
+    <section class="panel" id="panel-submissions">
+      <div class="topbar">
+        <div>
+          <h1>Submission data</h1>
+          <p>JPC tracker — auto sync with sheet tab SubmissionData</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="addSubBtn">
+            <span class="material-symbols-outlined">add</span> Add row
+          </button>
+          <button type="button" class="btn btn-dark" id="syncNowBtn4">
+            <span class="material-symbols-outlined">cloud_upload</span> Sync to sheet
+          </button>
+        </div>
+      </div>
+      <div class="sub-toolbar" id="subFilters">
+        <input type="search" id="subSearch" placeholder="Search all columns…">
+        <select id="subFilterJpc"><option value="">All JPCs</option></select>
+        <select id="subFilterRecruiter"><option value="">All recruiters</option></select>
+        <select id="subStatusFilter"><option value="">All statuses</option></select>
+        <select id="subFilterBdm"><option value="">All BDMs</option></select>
+        <input type="date" id="subFilterDateFrom" title="From date">
+        <input type="date" id="subFilterDateTo" title="To date">
+        <button type="button" class="btn btn-sm" id="subFilterClear">Clear filters</button>
+      </div>
+      <div class="sub-table-wrap" id="subTableWrap"></div>
+    </section>
+
+    <section class="panel" id="panel-alerts">
+      <div class="topbar">
+        <div>
+          <h1>Alerts</h1>
+          <p>Browser notification and beep before the interview</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-teal" id="testBeepBtn">
+            <span class="material-symbols-outlined">volume_up</span> Test beep
+          </button>
+          <button type="button" class="btn btn-dark" id="enableNotifyBtn2">
+            <span class="material-symbols-outlined">notifications_active</span> Enable alerts
+          </button>
+        </div>
+      </div>
+      <div class="upcoming-grid" id="alertsList"></div>
+    </section>
+
+    <section class="panel" id="panel-settings">
+      <div class="topbar">
+        <div>
+          <h1>Sheet and setup</h1>
+          <p>Connect once — sync runs automatically</p>
+        </div>
+      </div>
+      <div class="settings-card">
+        <h3>Google Apps Script URL</h3>
+        <p>Deploy the script, then paste the Web App URL. The dashboard pulls on load and pushes after every edit.</p>
+        <div class="field">
+          <label>Web App URL</label>
+          <input type="url" id="sheetUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
+        </div>
+        <div class="field">
+          <label>Reminder (minutes before)</label>
+          <input type="number" id="remindMins" min="1" max="60" value="10" style="max-width:120px">
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn btn-dark" id="saveSettingsBtn">
+            <span class="material-symbols-outlined">link</span> Save and connect
+          </button>
+          <button type="button" class="btn" id="pullBtn">
+            <span class="material-symbols-outlined">cloud_download</span> Pull
+          </button>
+          <button type="button" class="btn" id="pushBtn">
+            <span class="material-symbols-outlined">cloud_upload</span> Push
+          </button>
+        </div>
+        <div class="field" style="margin-top:18px">
+          <label>Signed-in name</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="localUserName" readonly style="max-width:220px;background:#eee">
+            <button type="button" class="btn" id="logoutBtn">
+              <span class="material-symbols-outlined">logout</span> Logout
+            </button>
+            <button type="button" class="btn admin-only" id="switchUserBtn">
+              <span class="material-symbols-outlined">switch_account</span> Switch user
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-only" id="adminSettingsExtra">
+        <h3 style="margin-top:22px">Dropdown lists (Config sheet)</h3>
+        <p>Hidden sheet <code>Config</code> columns: <strong>Type</strong> | <strong>Value</strong>. Add rows here or edit lists below, then save.</p>
+        <div class="field" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+          <div style="flex:1;min-width:120px">
+            <label>Type</label>
+            <select id="cfgNewType">
+              <option value="Recruiter">Recruiter</option>
+              <option value="BDM">BDM</option>
+              <option value="Status">Status</option>
+            </select>
+          </div>
+          <div style="flex:2;min-width:160px">
+            <label>Value</label>
+            <input type="text" id="cfgNewValue" placeholder="New value">
+          </div>
+          <button type="button" class="btn" id="cfgAddRowBtn">
+            <span class="material-symbols-outlined">add</span> Add to list
+          </button>
+        </div>
+        <div class="field">
+          <label>Recruiters (one per line)</label>
+          <textarea id="cfgRecruiters" rows="4" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:13px;background:var(--bg);font-family:inherit"></textarea>
+        </div>
+        <div class="field">
+          <label>BDM names (one per line)</label>
+          <textarea id="cfgBdms" rows="3" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:13px;background:var(--bg);font-family:inherit"></textarea>
+        </div>
+        <div class="field">
+          <label>Current status types (one per line)</label>
+          <textarea id="cfgStatuses" rows="4" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;font-size:13px;background:var(--bg);font-family:inherit"></textarea>
+        </div>
+        <button type="button" class="btn btn-dark" id="saveConfigBtn">
+          <span class="material-symbols-outlined">save</span> Save dropdowns to sheet
+        </button>
+
+        <div class="steps">
+          <strong>Sheet tabs (created by script)</strong>
+          <ol>
+            <li><code>Availability</code>, <code>Scheduled</code>, <code>SubmissionData</code></li>
+            <li><code>Config</code> (hidden): Type | Value — Recruiter / BDM / Status lists</li>
+            <li><code>Management</code> (hidden): Name | Role | CreatedAt — any Name with Role=Admin is Admin</li>
+            <li>Paste <code>apps-script.js</code>, run <code>setupSheets</code>, deploy Web app (Anyone), paste URL above.</li>
+            <li>Clearing the Web App URL and saving clears <strong>local</strong> portal data only (sheet is untouched).</li>
+          </ol>
+        </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="alert-overlay" id="loginOverlay" role="dialog" aria-modal="true">
+  <div class="alert-popup">
+    <div class="alert-popup-head">
+      <h3><span class="material-symbols-outlined">person</span> Welcome</h3>
+    </div>
+    <div class="alert-popup-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Enter your name to continue. Role comes from the <strong>Management</strong> sheet (Admin or User). New names are added as User.</p>
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">Your name</label>
+      <input type="text" id="loginNameInput" placeholder="e.g. Nitish" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg)">
+    </div>
+    <div class="alert-popup-foot">
+      <button type="button" class="btn btn-dark" id="loginContinueBtn">
+        <span class="material-symbols-outlined">login</span> Continue
+      </button>
+    </div>
+  </div>
+</div>
+<div class="alert-overlay" id="alertOverlay" role="alertdialog" aria-modal="true">
+  <div class="alert-popup">
+    <div class="alert-popup-head">
+      <h3><span class="material-symbols-outlined">notification_important</span> Upcoming interview</h3>
+      <span class="alert-timer" id="alertTimer">30s</span>
+    </div>
+    <div class="alert-popup-body" id="alertBody"></div>
+    <div class="alert-popup-foot">
+      <button type="button" class="btn btn-dark" id="alertDismiss">
+        <span class="material-symbols-outlined">close</span> Dismiss
+      </button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = "emb_dash_v5";
+const USER_KEY = "emb_user_v1";
+const DEFAULT = { availability: [], scheduled: [], submissions: [] };
+const DEFAULT_CONFIG = {
+  recruiters: ["Nandan", "Nitish", "Nitya", "Sakshi"],
+  bdms: ["Rajeev Sir"],
+  statuses: ["Submitted", "Screening", "Interview", "Offered", "Rejected", "On Hold"]
+};
+
+let state = JSON.parse(JSON.stringify(DEFAULT));
+let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+let users = []; // filled only from Management sheet on pull/login
+let currentUser = null; // { name, role }
+
+try {
+  const raw = localStorage.getItem(STORE_KEY);
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    state.availability = Array.isArray(parsed.availability) ? parsed.availability : [];
+    state.scheduled = Array.isArray(parsed.scheduled) ? parsed.scheduled : [];
+    state.submissions = Array.isArray(parsed.submissions) ? parsed.submissions : [];
+  }
+  const cu = localStorage.getItem(USER_KEY);
+  if (cu) currentUser = JSON.parse(cu);
+  const cfg = localStorage.getItem("emb_config_v1");
+  if (cfg) config = { ...DEFAULT_CONFIG, ...JSON.parse(cfg) };
+  const us = localStorage.getItem("emb_users_v1");
+  if (us) users = JSON.parse(us);
+} catch (_) {}
+
+function isAdmin() {
+  if (!currentUser) return false;
+  if (String(currentUser.role || "").toLowerCase().indexOf("admin") !== -1) return true;
+  return resolveRoleForName(currentUser.name) === "Admin";
+}
+
+function resolveRoleForName(name) {
+  const n = String(name || "").trim().toLowerCase();
+  if (!n) return "User";
+  const list = users || [];
+  // exact match first
+  let match = list.find(u => String(u.name || "").trim().toLowerCase() === n);
+  // fallback: sheet name contains typed name or vice-versa (handles small typos / suffixes)
+  if (!match) {
+    match = list.find(u => {
+      const un = String(u.name || "").trim().toLowerCase();
+      return un === n || un.startsWith(n) || n.startsWith(un);
+    });
+  }
+  if (!match) return "User";
+  const role = String(match.role || "").trim().toLowerCase();
+  return role.indexOf("admin") !== -1 ? "Admin" : "User";
+}
+
+async function fetchUsersFromSheet() {
+  const url = sheetUrl();
+  if (!url) return false;
+  try {
+    const sep = url.includes("?") ? "&" : "?";
+    // Prefer lightweight users endpoint; fall back to full get
+    let res = await fetch(url + sep + "action=users&_=" + Date.now(), { cache: "no-store" });
+    let json = await res.json();
+    if (!Array.isArray(json.users)) {
+      res = await fetch(url + sep + "_=" + Date.now(), { cache: "no-store" });
+      json = await res.json();
+    }
+    if (Array.isArray(json.users)) {
+      users = json.users;
+      try { localStorage.setItem("emb_users_v1", JSON.stringify(users)); } catch (_) {}
+      return true;
+    }
+  } catch (e) {
+    console.warn("fetchUsers", e);
+  }
+  return false;
+}
+
+function persistUser() {
+  if (currentUser) localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+}
+
+function persistConfig() {
+  localStorage.setItem("emb_config_v1", JSON.stringify(config));
+}
+
+function updateUserBadge() {
+  const n = document.getElementById("userBadgeName");
+  const r = document.getElementById("userBadgeRole");
+  const ln = document.getElementById("localUserName");
+  if (n) n.textContent = currentUser ? currentUser.name : "—";
+  if (r) r.textContent = currentUser ? (isAdmin() ? "Admin" : "User") : "";
+  if (ln) ln.value = currentUser ? currentUser.name : "";
+  document.body.classList.toggle("is-admin", isAdmin());
+  document.body.classList.toggle("is-user", !isAdmin());
+}
+
+function optionList(arr, selected) {
+  const set = new Set((arr || []).map(String));
+  if (selected && !set.has(selected)) set.add(selected);
+  return [...set].filter(Boolean).map(v =>
+    `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`
+  ).join("");
+}
+
+function fillConfigTextareas() {
+  const a = document.getElementById("cfgRecruiters");
+  const b = document.getElementById("cfgBdms");
+  const c = document.getElementById("cfgStatuses");
+  if (a) a.value = (config.recruiters || []).join("\n");
+  if (b) b.value = (config.bdms || []).join("\n");
+  if (c) c.value = (config.statuses || []).join("\n");
+}
+
+function linesToArr(text) {
+  return String(text || "").split(/\n+/).map(s => s.trim()).filter(Boolean);
+}
+
+function persist() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function icon(name, cls) {
+  return `<span class="material-symbols-outlined ${cls || ""}">${name}</span>`;
+}
+
+/* ---------- Date / time helpers ---------- */
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function pad(n) { return String(n).padStart(2, "0"); }
+
+function toDateInput(d) {
+  if (!(d instanceof Date) || isNaN(d)) return "";
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+function toTimeInput(d) {
+  if (!(d instanceof Date) || isNaN(d)) return "";
+  return pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+
+function formatDisplay(d) {
+  if (!(d instanceof Date) || isNaN(d)) return "";
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return MONTHS_SHORT[d.getMonth()] + " " + pad(d.getDate()) + " - " + h + ":" + pad(m) + " " + ap;
+}
+
+function formatSlotRange(start, end) {
+  // Single start date+time only
+  if (!start || isNaN(start)) return "";
+  return formatDisplay(start);
+}
+
+function formatInterviewWhen(d) {
+  if (!(d instanceof Date) || isNaN(d)) return "";
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return MONTHS_SHORT[d.getMonth()] + " " + pad(d.getDate()) + " at " + pad(h) + ":" + pad(m) + " " + ap;
+}
+
+/** Parse "Sep 09 - 7:00 PM – Sep 09 - 7:30 PM" or single side */
+function parseSlotString(str) {
+  if (!str || !String(str).trim()) return { start: null, end: null };
+  const parts = String(str).split(/\s*[–-]\s*/).map(s => s.trim()).filter(Boolean);
+  // might be "Sep 09 - 7:00 PM" as one part if en-dash used between ranges
+  // Our format uses " – " between start and end displays
+  const rangeParts = String(str).split(/\s+–\s+/);
+  if (rangeParts.length === 2) {
+    return { start: parseLooseDateTime(rangeParts[0]), end: parseLooseDateTime(rangeParts[1]) };
+  }
+  return { start: parseLooseDateTime(str), end: null };
+}
+
+function parseLooseDateTime(str) {
+  if (!str) return null;
+  const s = String(str);
+  let year = new Date().getFullYear();
+  const yMatch = s.match(/\b(20\d{2})\b/);
+  if (yMatch) year = parseInt(yMatch[1], 10);
+  // Sep 09 - 7:00 PM  OR  Sep 09 at 01:30 PM  OR  L1 Round -Sep 08 at 06:30 PM
+  let m = s.match(/([A-Za-z]{3,9})\s+(\d{1,2})\s*(?:[-–]|at)?\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!m) {
+    // 08-Sep-2026 06:30 PM style near end
+    m = s.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4}).*?(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (m) {
+      const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+      const month = months.indexOf(m[2].toLowerCase());
+      if (month < 0) return null;
+      year = parseInt(m[3], 10);
+      let hour = parseInt(m[4], 10);
+      const min = parseInt(m[5], 10);
+      const ap = m[6].toUpperCase();
+      if (ap === "PM" && hour < 12) hour += 12;
+      if (ap === "AM" && hour === 12) hour = 0;
+      return new Date(year, month, parseInt(m[1], 10), hour, min, 0, 0);
+    }
+    return null;
+  }
+  const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const month = months.indexOf(m[1].slice(0, 3).toLowerCase());
+  if (month < 0) return null;
+  let hour = parseInt(m[3], 10);
+  const min = parseInt(m[4], 10);
+  const ap = m[5].toUpperCase();
+  if (ap === "PM" && hour < 12) hour += 12;
+  if (ap === "AM" && hour === 12) hour = 0;
+  return new Date(year, month, parseInt(m[2], 10), hour, min, 0, 0);
+}
+
+function parseWhen(str) {
+  return parseLooseDateTime(str);
+}
+
+function fromInputs(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  return new Date(y, mo - 1, d, h, mi, 0, 0);
+}
+
+/* ---------- Render ---------- */
+function groupByRole() {
+  const map = {};
+  state.availability.forEach((c, i) => {
+    const r = c.role || "General";
+    if (!map[r]) map[r] = [];
+    map[r].push({ ...c, _i: i });
+  });
+  return map;
+}
+
+function badge(status) {
+  const s = (status || "").toLowerCase();
+  if (s.includes("all set")) return `<span class="badge set">${icon("check_circle", "mi-sm")} All Set</span>`;
+  if (s.includes("done")) return `<span class="badge done">${icon("task_alt", "mi-sm")} Done</span>`;
+  if (s.includes("reschedule")) return `<span class="badge resched">${icon("event_busy", "mi-sm")} Rescheduled</span>`;
+  return `<span class="badge pend">${icon("pending", "mi-sm")} ${status && status.trim() ? esc(status) : "Pending"}</span>`;
+}
+
+function renderAvailability() {
+  const mount = document.getElementById("availabilityMount");
+  if (!state.availability.length) {
+    mount.innerHTML = `
+      <div class="empty-state">
+        ${icon("event_available")}
+        <p>No candidates yet. Add someone and set slots with the calendar.</p>
+        <button type="button" class="btn btn-dark" id="emptyAddCand">${icon("person_add")} Add candidate</button>
+      </div>`;
+    document.getElementById("emptyAddCand").onclick = () => editAvailability(-1);
+    return;
+  }
+  const groups = groupByRole();
+  let html = "";
+  Object.keys(groups).forEach(role => {
+    html += `<div class="section-head"><h2>${esc(role)}</h2><span class="pill">${groups[role].length} candidates</span></div>`;
+    html += `<div class="candidate-grid">`;
+    groups[role].forEach(c => {
+      const slots = (c.slots || []).filter(s => s && String(s).trim());
+      const chips = (slots.length ? slots : [""]).map((s, n) => `
+        <div class="slot-chip">
+          <div class="slot-num">${n + 1}</div>
+          <div class="slot-text ${s ? "" : "slot-empty"}">${s ? esc(s) : "No slot set"}</div>
+        </div>`).join("");
+      html += `
+        <article class="cand-card">
+          <div class="cand-card-head">
+            <div>
+              <h3>${esc(c.name)}</h3>
+              <div class="role-tag">${slots.length} slot${slots.length === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+          <div class="cand-card-body">${chips}</div>
+          <div class="cand-card-foot">
+            <button type="button" class="btn btn-sm" data-edit-av="${c._i}">${icon("edit", "mi-sm")} Edit</button>
+            <button type="button" class="btn btn-sm admin-only" data-del-av="${c._i}">${icon("delete", "mi-sm")} Remove</button>
+          </div>
+        </article>`;
+    });
+    html += `</div>`;
+  });
+  mount.innerHTML = html;
+}
+
+function renderScheduled() {
+  const list = document.getElementById("schedList");
+  if (!state.scheduled.length) {
+    list.innerHTML = `
+      <div class="empty-state">
+        ${icon("calendar_month")}
+        <p>No scheduled interviews. Add one with date and time.</p>
+        <button type="button" class="btn btn-dark" id="emptyAddSched">${icon("add")} Add interview</button>
+      </div>`;
+    document.getElementById("emptyAddSched").onclick = () => editScheduled(-1);
+    return;
+  }
+  list.innerHTML = state.scheduled.map((r, i) => `
+    <div class="sched-row">
+      <div>
+        <div class="name">${esc(r.candidate)}</div>
+        <div class="meta">Interview</div>
+      </div>
+      <div class="meta">${esc(r.recruiter || "—")}</div>
+      <div style="font-weight:600;font-size:13px">${esc(r.when || "—")}</div>
+      <div>${badge(r.status)}</div>
+      <div style="display:flex;gap:6px">
+        <button type="button" class="btn btn-sm" data-edit-sc="${i}">${icon("edit", "mi-sm")}</button>
+        <button type="button" class="btn btn-sm admin-only" data-del-sc="${i}">${icon("close", "mi-sm")}</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function upcomingItems() {
+  const now = Date.now();
+  return state.scheduled
+    .map(r => ({ ...r, ts: parseWhen(r.when) }))
+    .filter(r => r.ts && r.ts.getTime() > now - 20 * 60000)
+    .sort((a, b) => a.ts - b.ts);
+}
+
+function renderUpcomingInto(elId) {
+  const items = upcomingItems();
+  const el = document.getElementById(elId);
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">${icon("upcoming")}<p>No upcoming interviews.</p></div>`;
+    return;
+  }
+  const now = Date.now();
+  el.innerHTML = items.map(r => {
+    const mins = Math.round((r.ts - now) / 60000);
+    const soon = mins <= 15 && mins >= -5;
+    return `<div class="up-card ${soon ? "soon" : ""}">
+      <div class="when">${icon("schedule", "mi-sm")} ${esc(r.when)}${mins >= 0 ? ` · in ${mins} min` : " · started"}</div>
+      <div class="who">${esc(r.candidate)}</div>
+      <div class="rec">${esc(r.recruiter || "—")} · ${esc(r.status || "Pending")}</div>
+    </div>`;
+  }).join("");
+}
+
+
+/* ---------- Submission analytics ---------- */
+const STATUS_ORDER = ["Submitted", "Screening", "Interview", "Offered", "Rejected", "On Hold"];
+const MONO = ["#1c1917", "#44403c", "#57534e", "#78716c", "#a8a29e", "#d6d3d1", "#b45309", "#292524"];
+
+function parseSubDate(str) {
+  if (!str) return null;
+  // 31-Aug-2026
+  let m = String(str).match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+  if (m) {
+    const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+    const mi = months.indexOf(m[2].toLowerCase());
+    if (mi >= 0) return new Date(+m[3], mi, +m[1]);
+  }
+  // ISO
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const d = new Date(str);
+    if (!isNaN(d)) return d;
+  }
+  return null;
+}
+
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function computeAnalytics() {
+  const rows = state.submissions || [];
+  const now = new Date();
+  const today0 = startOfDay(now);
+  const week0 = new Date(today0);
+  week0.setDate(week0.getDate() - week0.getDay()); // Sunday start
+
+  const statusCount = {};
+  STATUS_ORDER.forEach(s => { statusCount[s] = 0; });
+  const recruiters = {};
+  const jpcs = new Set();
+  let u1 = 0, u2 = 0, u3 = 0;
+  let todayCount = 0, weekCount = 0, monthCount = 0;
+  let interviewish = 0; // Screening + Interview + Offered
+  const month0 = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  rows.forEach(r => {
+    const st = (r.currentStatus || "Submitted").trim();
+    const key = STATUS_ORDER.find(s => s.toLowerCase() === st.toLowerCase()) || st;
+    statusCount[key] = (statusCount[key] || 0) + 1;
+
+    const rec = (r.recruiterName || "Unknown").trim() || "Unknown";
+    recruiters[rec] = (recruiters[rec] || 0) + 1;
+
+    if (r.jpc) jpcs.add(String(r.jpc).trim());
+
+    if ((r.update1 || "").trim()) u1++;
+    if ((r.update2 || "").trim()) u2++;
+    if ((r.update3 || "").trim()) u3++;
+
+    const sd = parseSubDate(r.submissionDate);
+    if (sd) {
+      if (startOfDay(sd).getTime() === today0.getTime()) todayCount++;
+      if (sd >= week0) weekCount++;
+      if (sd >= month0) monthCount++;
+    }
+
+    const sl = st.toLowerCase();
+    if (sl.includes("screen") || sl.includes("interview") || sl.includes("offer")) interviewish++;
+  });
+
+  const total = rows.length || 0;
+  const pct = (n) => total ? Math.round((n / total) * 100) : 0;
+  const pendingUpdate = rows.filter(r => !(r.update1 || "").trim()).length;
+  const conversion = pct(interviewish);
+
+  return {
+    total, todayCount, weekCount, monthCount,
+    recruiterCount: Object.keys(recruiters).length,
+    jpcCount: jpcs.size,
+    u1Pct: pct(u1), u2Pct: pct(u2), u3Pct: pct(u3),
+    u1, u2, u3, pendingUpdate, conversion, interviewish,
+    statusCount, recruiters, jpcs: [...jpcs]
+  };
+}
+
+function pieSVG(segments, size) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  const r = size / 2;
+  const cx = r, cy = r;
+  const ir = r * 0.58; // donut
+  let angle = -Math.PI / 2;
+  const paths = [];
+  segments.forEach((seg, i) => {
+    if (!seg.value) return;
+    const slice = (seg.value / total) * Math.PI * 2;
+    const a2 = angle + slice;
+    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+    const ix1 = cx + ir * Math.cos(a2), iy1 = cy + ir * Math.sin(a2);
+    const ix2 = cx + ir * Math.cos(angle), iy2 = cy + ir * Math.sin(angle);
+    const large = slice > Math.PI ? 1 : 0;
+    const d = [
+      `M ${x1} ${y1}`,
+      `A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`,
+      `L ${ix1} ${iy1}`,
+      `A ${ir} ${ir} 0 ${large} 0 ${ix2} ${iy2}`,
+      "Z"
+    ].join(" ");
+    paths.push(`<path d="${d}" fill="${seg.color}" stroke="#fff" stroke-width="2"/>`);
+    angle = a2;
+  });
+  if (!segments.some(s => s.value)) {
+    paths.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#e7e5e4"/>`);
+  }
+  paths.push(`<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="20" font-weight="750" fill="#1c1917">${total}</text>`);
+  paths.push(`<text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="10" fill="#78716c">TOTAL</text>`);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths.join("")}</svg>`;
+}
+
+function renderStats() {
+  const a = computeAnalytics();
+
+  // KPI cards
+  const upcoming = (typeof collectAlertTargets === "function" ? collectAlertTargets() : [])
+    .filter(r => r.ts && r.ts.getTime() > Date.now() - 5 * 60000)
+    .sort((x, y) => x.ts - y.ts);
+  const next = upcoming[0];
+  const nextLabel = next ? (next.candidate || "Candidate") : "None";
+  const nextSub = next
+    ? ((next.when || "") + (next.recruiter ? " · " + next.recruiter : ""))
+    : "No upcoming interview parsed";
+
+  const kpis = [
+    { label: "Total candidates", value: a.total, sub: "All submissions", icon: "group", cls: "accent-dark" },
+    { label: "Today's submissions", value: a.todayCount, sub: "Submitted today", icon: "today", cls: "" },
+    { label: "This week", value: a.weekCount, sub: "Since Sunday", icon: "date_range", cls: "accent-warm" },
+    { label: "This month", value: a.monthCount || 0, sub: "Calendar month", icon: "calendar_month", cls: "accent-stone" },
+    { label: "Recruiters", value: a.recruiterCount, sub: "Active on tracker", icon: "badge", cls: "" },
+    { label: "JPCs worked", value: a.jpcCount, sub: "Unique job codes", icon: "work", cls: "" },
+    { label: "Next interview", value: nextLabel, sub: nextSub, icon: "event_upcoming", cls: "accent-dark", small: true },
+    { label: "Upcoming count", value: upcoming.length, sub: "Interviews ahead", icon: "schedule", cls: "" },
+    { label: "Pending update", value: a.pendingUpdate, sub: "No Update 1 yet", icon: "pending_actions", cls: "accent-warm" },
+    { label: "Interview conversion", value: a.conversion + "%", sub: a.interviewish + " in pipeline", icon: "moving", cls: "accent-dark" }
+  ];
+  const grid = document.getElementById("kpiGrid");
+  if (grid) {
+    grid.innerHTML = kpis.map(k => `
+      <div class="kpi ${k.cls}">
+        <div class="k-label">${icon(k.icon)} ${esc(k.label)}</div>
+        <div class="k-value" style="${k.small ? "font-size:15px;line-height:1.25" : ""}">${esc(String(k.value))}</div>
+        <div class="k-sub">${esc(k.sub)}</div>
+      </div>`).join("");
+  }
+
+  // Status pie + bars
+  const statusSegs = STATUS_ORDER.map((name, i) => ({
+    name,
+    value: a.statusCount[name] || 0,
+    color: MONO[i % MONO.length]
+  }));
+  // include any other statuses
+  Object.keys(a.statusCount).forEach((name, i) => {
+    if (!STATUS_ORDER.includes(name) && a.statusCount[name]) {
+      statusSegs.push({ name, value: a.statusCount[name], color: MONO[(STATUS_ORDER.length + i) % MONO.length] });
+    }
+  });
+
+  const pieEl = document.getElementById("statusPie");
+  if (pieEl) pieEl.innerHTML = pieSVG(statusSegs, 160);
+
+  const leg = document.getElementById("statusLegend");
+  if (leg) {
+    leg.innerHTML = statusSegs.filter(s => s.value).map(s => `
+      <div class="legend-item">
+        <span class="legend-swatch" style="background:${s.color}"></span>
+        <span>${esc(s.name)} · <strong>${s.value}</strong></span>
+      </div>`).join("") || `<span style="color:var(--muted)">No data</span>`;
+  }
+
+  const maxStatus = Math.max(1, ...statusSegs.map(s => s.value));
+  const bars = document.getElementById("statusBars");
+  if (bars) {
+    bars.innerHTML = statusSegs.map((s, i) => `
+      <div class="status-row">
+        <div class="s-name">${esc(s.name)}</div>
+        <div class="s-bar"><div class="s-fill c${(i % 6) + 1}" style="width:${(s.value / maxStatus) * 100}%"></div></div>
+        <div class="s-count">${s.value}</div>
+      </div>`).join("");
+  }
+
+  // Recruiter performance + contribution % of total submissions
+  const recEntries = Object.entries(a.recruiters).sort((x, y) => y[1] - x[1]);
+  const totalSub = a.total || 1;
+  const maxRec = Math.max(1, ...recEntries.map(e => e[1]), 1);
+  const recEl = document.getElementById("recruiterPerf");
+  if (recEl) {
+    if (!recEntries.length) {
+      recEl.innerHTML = `<p style="color:var(--muted);font-size:13px">No recruiter data yet. Pull submissions from the sheet.</p>`;
+    } else {
+      recEl.innerHTML = recEntries.map(([name, count]) => {
+        const pct = Math.round((count / totalSub) * 100);
+        return `
+        <div class="rec-row">
+          <div>
+            <div class="rec-name">${esc(name)}</div>
+            <div class="rec-meta">${count} submission${count === 1 ? "" : "s"} · <strong>${pct}%</strong> of total</div>
+          </div>
+          <div class="rec-count">${pct}%</div>
+          <div class="rec-bar-track"><div class="rec-bar-fill" style="width:${(count / maxRec) * 100}%"></div></div>
+        </div>`;
+      }).join("");
+    }
+  }
+
+  // Update funnel
+  const funnel = document.getElementById("updateFunnel");
+  if (funnel) {
+    funnel.innerHTML = `
+      <div class="funnel-item"><div class="f-val">${a.u1Pct}%</div><div class="f-lab">Update 1</div></div>
+      <div class="funnel-item"><div class="f-val">${a.u2Pct}%</div><div class="f-lab">Update 2</div></div>
+      <div class="funnel-item"><div class="f-val">${a.u3Pct}%</div><div class="f-lab">Update 3</div></div>`;
+  }
+  const ub = document.getElementById("updateBars");
+  if (ub) {
+    const items = [
+      { name: "Update 1 filled", v: a.u1 },
+      { name: "Update 2 filled", v: a.u2 },
+      { name: "Update 3 filled", v: a.u3 },
+      { name: "Pending (no U1)", v: a.pendingUpdate }
+    ];
+    const mx = Math.max(1, a.total);
+    ub.innerHTML = items.map((it, i) => `
+      <div class="status-row">
+        <div class="s-name">${esc(it.name)}</div>
+        <div class="s-bar"><div class="s-fill c${(i % 6) + 1}" style="width:${(it.v / mx) * 100}%"></div></div>
+        <div class="s-count">${it.v}</div>
+      </div>`).join("");
+  }
+
+  // JPC bars — count submissions per JPC
+  const jpcCount = {};
+  (state.submissions || []).forEach(r => {
+    const j = (r.jpc || "—").trim() || "—";
+    jpcCount[j] = (jpcCount[j] || 0) + 1;
+  });
+  const jpcEntries = Object.entries(jpcCount).sort((x, y) => y[1] - x[1]).slice(0, 12);
+  const maxJ = Math.max(1, ...jpcEntries.map(e => e[1]), 1);
+  const jpcEl = document.getElementById("jpcBars");
+  if (jpcEl) {
+    if (!jpcEntries.length) {
+      jpcEl.innerHTML = `<p style="color:var(--muted);font-size:13px">No JPC data yet.</p>`;
+    } else {
+      jpcEl.innerHTML = jpcEntries.map(([name, count], i) => `
+        <div class="status-row">
+          <div class="s-name" style="font-family:ui-monospace,monospace;font-size:12px">${esc(name)}</div>
+          <div class="s-bar"><div class="s-fill c${(i % 6) + 1}" style="width:${(count / maxJ) * 100}%"></div></div>
+          <div class="s-count">${count}</div>
+        </div>`).join("");
+    }
+  }
+}
+
+
+let dirty = false; // true only after user edits — prevents wiping sheet on load
+
+function refresh(opts) {
+  opts = opts || {};
+  renderAvailability();
+  renderScheduled();
+  renderSubmissions();
+  renderUpcomingInto("overviewUpcoming");
+  renderUpcomingInto("alertsList");
+  renderStats();
+  persist();
+  scheduleReminders();
+  if (opts.push) {
+    dirty = true;
+    queueSync();
+  }
+}
+
+/* ---------- Sheet sync ---------- */
+function sheetUrl() {
+  return (localStorage.getItem("emb_sheet_url") || "").trim();
+}
+function setSyncUI(ok, msg) {
+  const dot = document.getElementById("syncDot");
+  const lab = document.getElementById("syncLabel");
+  dot.className = "sync-dot" + (ok === true ? " ok" : ok === false ? " err" : "");
+  lab.textContent = msg || (ok ? "Synced" : "Not connected");
+}
+let syncTimer = null;
+function queueSync() {
+  if (!sheetUrl()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => pushToSheet(true), 800);
+}
+async function pushToSheet(silent) {
+  const url = sheetUrl();
+  if (!url) {
+    if (!silent) toast("Add Web App URL in Sheet and setup", "link_off");
+    setSyncUI(false, "No URL");
+    return;
+  }
+  const payload = {
+    action: "upsert",
+    availability: state.availability,
+    scheduled: state.scheduled,
+    submissions: state.submissions,
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    // text/plain avoids CORS preflight; Apps Script still receives body
+    await fetch(url, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    setSyncUI(true, "Pushed · " + new Date().toLocaleTimeString());
+    if (!silent) toast("Synced to Google Sheet", "cloud_done");
+  } catch (e) {
+    console.error(e);
+    setSyncUI(false, "Push failed");
+    if (!silent) toast("Push failed — check URL", "error");
+  }
+}
+
+async function pullFromSheet() {
+  const url = sheetUrl();
+  if (!url) { toast("Add Web App URL first", "link_off"); return; }
+  setSyncUI(null, "Pulling…");
+  try {
+    const sep = url.includes("?") ? "&" : "?";
+    const res = await fetch(url + sep + "action=get&_=" + Date.now(), {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store"
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    if (json && json.ok === false) throw new Error(json.error || "Sheet error");
+    if (Array.isArray(json.availability)) state.availability = json.availability;
+    if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
+    if (Array.isArray(json.submissions)) state.submissions = json.submissions;
+    if (json.config) {
+      config = {
+        recruiters: json.config.recruiters || config.recruiters,
+        bdms: json.config.bdms || config.bdms,
+        statuses: json.config.statuses || config.statuses
+      };
+      persistConfig();
+      fillConfigTextareas();
+    }
+    if (Array.isArray(json.users)) {
+      users = json.users;
+      try { localStorage.setItem("emb_users_v1", JSON.stringify(users)); } catch (_) {}
+      if (currentUser) {
+        const prev = currentUser.role;
+        currentUser.role = resolveRoleForName(currentUser.name);
+        persistUser();
+        if (prev !== currentUser.role) {
+          toast("Role updated from Management sheet: " + currentUser.role, "badge");
+        }
+      }
+      updateUserBadge();
+    }
+    persist();
+    dirty = false;
+    renderAvailability();
+    renderScheduled();
+    renderSubmissions();
+    renderUpcomingInto("overviewUpcoming");
+    renderUpcomingInto("alertsList");
+    renderStats();
+    scheduleReminders();
+    setSyncUI(true, "Pulled · " + new Date().toLocaleTimeString());
+    toast("Loaded from Google Sheet", "cloud_download");
+  } catch (e) {
+    console.error("Pull error", e);
+    setSyncUI(false, "Pull failed");
+    toast("Pull failed: " + (e.message || "check deployment / Anyone access"), "error");
+  }
+}
+
+/* ---------- Notifications ---------- */
+const fired = new Set(JSON.parse(localStorage.getItem("emb_fired_v3") || "[]"));
+function remember(k) {
+  fired.add(k);
+  localStorage.setItem("emb_fired_v3", JSON.stringify([...fired].slice(-150)));
+}
+function remindMins() {
+  return parseInt(localStorage.getItem("emb_remind") || "10", 10) || 10;
+}
+function playBeep() {
+  try {
+    unlockAudio();
+    const ctx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx = ctx;
+    if (ctx.state === "suspended") ctx.resume();
+    const beep = (freq, start, dur, vol) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq; o.type = "sine";
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(vol, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      o.start(start); o.stop(start + dur + 0.02);
+    };
+    const t = ctx.currentTime;
+    beep(880, t, 0.28, 0.25);
+    beep(1175, t + 0.18, 0.22, 0.2);
+  } catch (e) { console.warn("beep", e); }
+}
+
+let remTimer = null;
+let audioCtx = null;
+let alertActive = false;
+let alertSoundTimer = null;
+let alertCloseTimer = null;
+let alertCountdownTimer = null;
+let alertEndsAt = 0;
+
+function unlockAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (_) {}
+}
+
+function collectAlertTargets() {
+  const list = [];
+  const seen = new Set();
+  (state.scheduled || []).forEach(row => {
+    const ts = parseWhen(row.when);
+    if (!ts) return;
+    const key = (row.candidate || "") + "|" + ts.getTime();
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ candidate: row.candidate, when: row.when, recruiter: row.recruiter, ts, source: "scheduled" });
+  });
+  (state.submissions || []).forEach(row => {
+    [row.update1, row.update2, row.update3].forEach(u => {
+      if (!u) return;
+      const ts = parseWhen(u);
+      if (!ts) return;
+      const cand = row.candidateName || row.candidate || "";
+      const key = cand + "|" + ts.getTime();
+      if (seen.has(key)) return;
+      seen.add(key);
+      list.push({
+        candidate: cand,
+        when: u,
+        recruiter: row.recruiterName || "",
+        role: row.role || "",
+        ts,
+        source: "submission"
+      });
+    });
+  });
+  return list;
+}
+
+function stopAlertSound() {
+  if (alertSoundTimer) { clearInterval(alertSoundTimer); alertSoundTimer = null; }
+  if (alertCloseTimer) { clearTimeout(alertCloseTimer); alertCloseTimer = null; }
+  if (alertCountdownTimer) { clearInterval(alertCountdownTimer); alertCountdownTimer = null; }
+}
+
+function dismissAlertPopup() {
+  stopAlertSound();
+  alertActive = false;
+  const el = document.getElementById("alertOverlay");
+  if (el) el.classList.remove("open");
+}
+
+function showInterviewAlert(rows) {
+  if (!rows || !rows.length) return;
+  // Mark all as fired
+  const mins = remindMins();
+  rows.forEach(row => {
+    remember((row.candidate || "") + "|" + row.when + "|" + mins);
+  });
+
+  // If another alert is showing, dismiss first then show new batch
+  dismissAlertPopup();
+  alertActive = true;
+
+  const body = document.getElementById("alertBody");
+  body.innerHTML = rows.map(r => `
+    <div class="alert-person">
+      <div class="ap-name">${esc(r.candidate || "Candidate")}</div>
+      <div class="ap-meta">${esc(r.when || "")}</div>
+      <div class="ap-meta">Recruiter: ${esc(r.recruiter || "—")}${r.role ? " · " + esc(r.role) : ""}</div>
+    </div>
+  `).join("");
+
+  document.getElementById("alertOverlay").classList.add("open");
+
+  // Browser notification (optional backup)
+  try {
+    if (Notification.permission === "granted") {
+      const names = rows.map(r => r.candidate).filter(Boolean).join(", ");
+      const n = new Notification("Interview in " + mins + " min", {
+        body: names + (rows[0] && rows[0].when ? "\n" + rows[0].when : ""),
+        tag: "emb-batch-" + (rows[0] ? rows[0].ts.getTime() : Date.now()),
+        requireInteraction: true
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+    }
+  } catch (_) {}
+
+  // Sound for 30 seconds (beep every ~1.1s)
+  unlockAudio();
+  playBeep();
+  alertSoundTimer = setInterval(playBeep, 1100);
+
+  // Countdown UI
+  alertEndsAt = Date.now() + 30000;
+  const timerEl = document.getElementById("alertTimer");
+  const tickCountdown = () => {
+    const left = Math.max(0, Math.ceil((alertEndsAt - Date.now()) / 1000));
+    if (timerEl) timerEl.textContent = left + "s";
+    if (left <= 0) dismissAlertPopup();
+  };
+  tickCountdown();
+  alertCountdownTimer = setInterval(tickCountdown, 250);
+  alertCloseTimer = setTimeout(dismissAlertPopup, 30000);
+}
+
+function scheduleReminders() {
+  if (remTimer) clearInterval(remTimer);
+  // Run even without Notification permission — in-page popup still works after enable
+  const tick = () => {
+    if (alertActive) return; // wait until current popup finishes
+    const mins = remindMins();
+    const now = Date.now();
+    const windowMs = 90 * 1000; // 90s catch window after fire time
+
+    // Group by interview start time (same minute)
+    const due = [];
+    collectAlertTargets().forEach(row => {
+      const fireAt = row.ts.getTime() - mins * 60000;
+      const key = (row.candidate || "") + "|" + row.when + "|" + mins;
+      if (fired.has(key)) return;
+      if (now >= fireAt && now < fireAt + windowMs) {
+        due.push(row);
+      }
+    });
+
+    if (due.length) {
+      // Group by interview timestamp rounded to minute
+      const groups = {};
+      due.forEach(r => {
+        const k = Math.floor(r.ts.getTime() / 60000);
+        if (!groups[k]) groups[k] = [];
+        groups[k].push(r);
+      });
+      // Show earliest group first
+      const firstKey = Object.keys(groups).sort((a, b) => a - b)[0];
+      showInterviewAlert(groups[firstKey]);
+    }
+
+    renderUpcomingInto("overviewUpcoming");
+    renderUpcomingInto("alertsList");
+  };
+  tick();
+  remTimer = setInterval(tick, 5000);
+}
+
+async function enableAlerts() {
+  unlockAudio();
+  playBeep();
+  if ("Notification" in window) {
+    let p = Notification.permission;
+    if (p === "default") p = await Notification.requestPermission();
+  }
+  scheduleReminders();
+  toast("Alerts on — popup + sound " + remindMins() + " min before (30s)", "notifications_active");
+}
+
+/* ---------- Modals ---------- */
+function openModal(html) {
+  document.getElementById("modal").innerHTML = html;
+  document.getElementById("overlay").classList.add("open");
+}
+function closeModal() {
+  document.getElementById("overlay").classList.remove("open");
+}
+document.getElementById("overlay").addEventListener("click", e => {
+  if (e.target.id === "overlay") closeModal();
+});
+document.getElementById("alertDismiss").onclick = dismissAlertPopup;
+document.getElementById("alertOverlay").addEventListener("click", e => {
+  if (e.target.id === "alertOverlay") dismissAlertPopup();
+});
+
+
+function statusChip(status) {
+  const s = (status || "").toLowerCase();
+  let cls = "other";
+  if (s.includes("submit")) cls = "submitted";
+  else if (s.includes("screen")) cls = "screening";
+  else if (s.includes("hold")) cls = "onhold";
+  else if (s.includes("reject")) cls = "rejected";
+  return `<span class="status-chip ${cls}">${esc(status || "—")}</span>`;
+}
+
+
+function uniqueSorted(vals) {
+  return [...new Set(vals.map(v => String(v || "").trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+}
+
+function rebuildSubFilterOptions() {
+  const rows = state.submissions || [];
+  const fill = (id, values, allLabel) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = `<option value="">${allLabel}</option>` +
+      values.map(v => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
+  };
+  fill("subFilterJpc", uniqueSorted(rows.map(r => r.jpc)), "All JPCs");
+  fill("subFilterRecruiter", uniqueSorted(rows.map(r => r.recruiterName).concat(config.recruiters || [])), "All recruiters");
+  fill("subStatusFilter", uniqueSorted(rows.map(r => r.currentStatus).concat(config.statuses || [])), "All statuses");
+  fill("subFilterBdm", uniqueSorted(rows.map(r => r.bdm).concat(config.bdms || [])), "All BDMs");
+}
+
+function filteredSubmissions() {
+  const q = (document.getElementById("subSearch")?.value || "").trim().toLowerCase();
+  const st = (document.getElementById("subStatusFilter")?.value || "").toLowerCase();
+  const jpc = (document.getElementById("subFilterJpc")?.value || "").toLowerCase();
+  const rec = (document.getElementById("subFilterRecruiter")?.value || "").toLowerCase();
+  const bdm = (document.getElementById("subFilterBdm")?.value || "").toLowerCase();
+  const from = document.getElementById("subFilterDateFrom")?.value || "";
+  const to = document.getElementById("subFilterDateTo")?.value || "";
+  const fromD = from ? new Date(from + "T00:00:00") : null;
+  const toD = to ? new Date(to + "T23:59:59") : null;
+
+  return state.submissions.filter(r => {
+    if (jpc && String(r.jpc || "").toLowerCase() !== jpc) return false;
+    if (rec && String(r.recruiterName || "").toLowerCase() !== rec) return false;
+    if (st && !(r.currentStatus || "").toLowerCase().includes(st)) return false;
+    if (bdm && String(r.bdm || "").toLowerCase() !== bdm) return false;
+    if (fromD || toD) {
+      const sd = parseSubDate(r.submissionDate);
+      if (!sd) return false;
+      if (fromD && sd < fromD) return false;
+      if (toD && sd > toD) return false;
+    }
+    if (!q) return true;
+    const blob = [r.jpc, r.role, r.candidateName, r.recruiterName, r.bdm, r.update1, r.update2, r.update3, r.submissionDate, r.currentStatus]
+      .join(" ").toLowerCase();
+    return blob.includes(q);
+  });
+}
+
+function renderSubmissions() {
+  const wrap = document.getElementById("subTableWrap");
+  if (!wrap) return;
+  rebuildSubFilterOptions();
+  const rows = filteredSubmissions();
+  if (!state.submissions.length) {
+    wrap.innerHTML = `<div class="empty-state">${icon("table_chart")}<p>No submission rows yet. Add a row or pull from the sheet.</p>
+      <button type="button" class="btn btn-dark" id="emptyAddSub">${icon("add")} Add row</button></div>`;
+    const btn = document.getElementById("emptyAddSub");
+    if (btn) btn.onclick = () => editSubmission(-1);
+    return;
+  }
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="empty-state">${icon("filter_alt_off")}<p>No rows match your filters.</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `<table class="sub-table">
+    <thead>
+      <tr>
+        <th>JPC</th>
+        <th>Role</th>
+        <th>Candidate</th>
+        <th>Recruiter</th>
+        <th>Submission Date</th>
+        <th>Status</th>
+        <th>BDM</th>
+        <th>Update 1</th>
+        <th>Update 2</th>
+        <th>Update 3</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map((r) => {
+        const i = state.submissions.indexOf(r);
+        return `<tr>
+          <td class="jpc">${esc(r.jpc)}</td>
+          <td class="role-cell">${esc(r.role)}</td>
+          <td><strong>${esc(r.candidateName)}</strong></td>
+          <td>${esc(r.recruiterName)}</td>
+          <td style="white-space:nowrap">${esc(r.submissionDate)}</td>
+          <td>${statusChip(r.currentStatus)}</td>
+          <td>${esc(r.bdm)}</td>
+          <td class="update-cell">${esc(r.update1)}</td>
+          <td class="update-cell">${esc(r.update2)}</td>
+          <td class="update-cell">${esc(r.update3)}</td>
+          <td style="white-space:nowrap">
+            <button type="button" class="btn btn-sm" data-edit-sub="${i}">${icon("edit", "mi-sm")}</button>
+            <button type="button" class="btn btn-sm admin-only" data-del-sub="${i}">${icon("delete", "mi-sm")}</button>
+          </td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>`;
+}
+
+function parseSubDateInput(str) {
+  // accept 31-Aug-2026 or ISO date input
+  if (!str) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split("-").map(Number);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return String(d).padStart(2,"0") + "-" + months[m - 1] + "-" + y;
+  }
+  return str;
+}
+
+function subDateToInput(str) {
+  if (!str) return "";
+  const m = String(str).match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+  if (!m) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    return "";
+  }
+  const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const mi = months.indexOf(m[2].toLowerCase());
+  if (mi < 0) return "";
+  return m[3] + "-" + String(mi + 1).padStart(2,"0") + "-" + String(m[1]).padStart(2,"0");
+}
+
+function editSubmission(index) {
+  const isNew = index < 0;
+  const row = isNew ? {
+    jpc: "", role: "", candidateName: "", recruiterName: "",
+    submissionDate: "", currentStatus: "Submitted", bdm: "",
+    update1: "", update2: "", update3: ""
+  } : { ...state.submissions[index] };
+
+  openModal(`
+    <h3>${icon(isNew ? "add" : "edit")} ${isNew ? "Add submission" : "Edit submission"}</h3>
+    <label>JPC</label>
+    <input id="m_jpc" value="${esc(row.jpc)}" placeholder="JPC-1872">
+    <label>Role</label>
+    <input id="m_role" value="${esc(row.role)}" placeholder="Role title">
+    <label>Candidate Name</label>
+    <input id="m_cand" value="${esc(row.candidateName)}">
+    <label>Recruiter Name</label>
+    <select id="m_rec">${optionList(config.recruiters, row.recruiterName || (currentUser && currentUser.name) || "")}</select>
+    <label>Submission Date</label>
+    <input type="date" id="m_date" value="${esc(subDateToInput(row.submissionDate))}">
+    <label>Current Status</label>
+    <select id="m_status">${optionList(config.statuses, row.currentStatus || "Submitted")}</select>
+    <label>BDM</label>
+    <select id="m_bdm">${optionList(config.bdms, row.bdm || "")}</select>
+    <label>Update 1</label>
+    <input id="m_u1" value="${esc(row.update1)}">
+    <label>Update 2</label>
+    <input id="m_u2" value="${esc(row.update2)}">
+    <label>Update 3</label>
+    <input id="m_u3" value="${esc(row.update3)}">
+    <div class="modal-actions">
+      <button type="button" class="btn" id="m_cancel">Cancel</button>
+      <button type="button" class="btn btn-dark" id="m_save">${icon("save")} Save</button>
+    </div>
+  `);
+
+  document.getElementById("m_cancel").onclick = closeModal;
+  document.getElementById("m_save").onclick = () => {
+    const next = {
+      jpc: document.getElementById("m_jpc").value.trim(),
+      role: document.getElementById("m_role").value.trim(),
+      candidateName: document.getElementById("m_cand").value.trim() || "Candidate",
+      recruiterName: document.getElementById("m_rec").value.trim(),
+      submissionDate: parseSubDateInput(document.getElementById("m_date").value),
+      currentStatus: document.getElementById("m_status").value,
+      bdm: document.getElementById("m_bdm").value.trim(),
+      update1: document.getElementById("m_u1").value.trim(),
+      update2: document.getElementById("m_u2").value.trim(),
+      update3: document.getElementById("m_u3").value.trim()
+    };
+    if (isNew) state.submissions.push(next);
+    else state.submissions[index] = next;
+    closeModal();
+    refresh({ push: true });
+  };
+}
+
+function editAvailability(index) {
+  const isNew = index < 0;
+  const row = isNew
+    ? { role: "", name: "", slots: [""] }
+    : JSON.parse(JSON.stringify(state.availability[index]));
+  if (!row.slots || !row.slots.length) row.slots = [""];
+
+  // Single date + time per slot
+  let slotObjs = row.slots.map(s => {
+    const p = parseSlotString(s);
+    const d = p.start || p.end;
+    return {
+      date: d ? toDateInput(d) : "",
+      time: d ? toTimeInput(d) : ""
+    };
+  });
+
+  const renderBlocks = () => slotObjs.map((s, i) => `
+    <div class="slot-block" data-idx="${i}">
+      <div class="slot-block-head">
+        <span>${icon("event", "mi-sm")} Slot ${i + 1}</span>
+        <button type="button" class="btn btn-sm" data-rm-slot="${i}">${icon("delete", "mi-sm")}</button>
+      </div>
+      <div class="slot-grid">
+        <div>
+          <label>Date</label>
+          <input type="date" data-f="date" data-i="${i}" value="${esc(s.date)}">
+        </div>
+        <div>
+          <label>Time</label>
+          <input type="time" data-f="time" data-i="${i}" value="${esc(s.time)}">
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  openModal(`
+    <h3>${icon(isNew ? "person_add" : "edit")} ${isNew ? "Add candidate" : "Edit slots"}</h3>
+    <label>Role</label>
+    <input id="m_role" value="${esc(row.role)}" placeholder="e.g. AI/ML Security Engineer">
+    <label>Candidate name</label>
+    <input id="m_name" value="${esc(row.name)}" placeholder="Full name">
+    <label>Availability slots</label>
+    <div id="m_slots">${renderBlocks()}</div>
+    <button type="button" class="btn btn-sm" id="m_add_slot" style="margin-top:4px">
+      ${icon("add")} Add slot
+    </button>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="m_cancel">Cancel</button>
+      <button type="button" class="btn btn-dark" id="m_save">${icon("save")} Save</button>
+    </div>
+  `);
+
+  const bind = () => {
+    document.querySelectorAll("#m_slots [data-f]").forEach(inp => {
+      inp.onchange = inp.oninput = () => {
+        slotObjs[+inp.dataset.i][inp.dataset.f] = inp.value;
+      };
+    });
+    document.querySelectorAll("[data-rm-slot]").forEach(btn => {
+      btn.onclick = () => {
+        const i = +btn.dataset.rmSlot;
+        if (slotObjs.length <= 1) {
+          slotObjs[0] = { date: "", time: "" };
+        } else {
+          slotObjs.splice(i, 1);
+        }
+        document.getElementById("m_slots").innerHTML = renderBlocks();
+        bind();
+      };
+    });
+  };
+  bind();
+
+  document.getElementById("m_add_slot").onclick = () => {
+    slotObjs.push({ date: "", time: "" });
+    document.getElementById("m_slots").innerHTML = renderBlocks();
+    bind();
+  };
+  document.getElementById("m_cancel").onclick = closeModal;
+  document.getElementById("m_save").onclick = () => {
+    document.querySelectorAll("#m_slots [data-f]").forEach(inp => {
+      slotObjs[+inp.dataset.i][inp.dataset.f] = inp.value;
+    });
+    const slots = slotObjs.map(s => {
+      const start = fromInputs(s.date, s.time);
+      return formatSlotRange(start, null);
+    }).filter(Boolean);
+
+    const next = {
+      role: document.getElementById("m_role").value.trim() || "General",
+      name: document.getElementById("m_name").value.trim() || "Unnamed",
+      slots: slots.length ? slots : []
+    };
+    if (isNew) state.availability.push(next);
+    else state.availability[index] = next;
+    closeModal();
+    refresh({ push: true });
+  };
+}
+
+function editScheduled(index) {
+  const isNew = index < 0;
+  const row = isNew
+    ? { candidate: "", recruiter: "", when: "", status: "" }
+    : { ...state.scheduled[index] };
+
+  const ts = parseWhen(row.when);
+  const dateVal = ts ? toDateInput(ts) : "";
+  const timeVal = ts ? toTimeInput(ts) : "";
+
+  openModal(`
+    <h3>${icon(isNew ? "add" : "edit")} ${isNew ? "Add interview" : "Edit interview"}</h3>
+    <label>Candidate</label>
+    <input id="m_c" value="${esc(row.candidate)}" placeholder="Name">
+    <label>Recruiter</label>
+    <select id="m_r">${optionList(config.recruiters, row.recruiter || (currentUser && currentUser.name) || "")}</select>
+    <label>Interview date</label>
+    <input type="date" id="m_date" value="${esc(dateVal)}">
+    <label>Interview time</label>
+    <input type="time" id="m_time" value="${esc(timeVal)}">
+    <label>Status</label>
+    <select id="m_s">
+      <option value="" ${!row.status ? "selected" : ""}>Pending</option>
+      <option value="All Set" ${/all set/i.test(row.status || "") ? "selected" : ""}>All Set</option>
+      <option value="Done" ${/^done$/i.test((row.status || "").replace(/[^\w\s]/g, "").trim()) || /done/i.test(row.status || "") && !/all set/i.test(row.status || "") ? "selected" : ""}>Done</option>
+      <option value="Rescheduled" ${/reschedule/i.test(row.status || "") ? "selected" : ""}>Rescheduled</option>
+    </select>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="m_cancel">Cancel</button>
+      <button type="button" class="btn btn-dark" id="m_save">${icon("save")} Save</button>
+    </div>
+  `);
+
+  document.getElementById("m_cancel").onclick = closeModal;
+  document.getElementById("m_save").onclick = () => {
+    const d = fromInputs(document.getElementById("m_date").value, document.getElementById("m_time").value);
+    const next = {
+      candidate: document.getElementById("m_c").value.trim() || "Candidate",
+      recruiter: document.getElementById("m_r").value.trim(),
+      when: d ? formatInterviewWhen(d) : "",
+      status: document.getElementById("m_s").value
+    };
+    if (isNew) state.scheduled.push(next);
+    else state.scheduled[index] = next;
+    closeModal();
+    refresh({ push: true });
+  };
+}
+
+/* ---------- Events ---------- */
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+  };
+});
+
+document.getElementById("availabilityMount").addEventListener("click", e => {
+  const ed = e.target.closest("[data-edit-av]");
+  const del = e.target.closest("[data-del-av]");
+  if (ed) editAvailability(+ed.dataset.editAv);
+  if (del) {
+    if (!isAdmin()) return;
+    if (confirm("Remove this candidate?")) {
+      state.availability.splice(+del.dataset.delAv, 1);
+      refresh({ push: true });
+    }
+  }
+});
+
+document.getElementById("schedList").addEventListener("click", e => {
+  const ed = e.target.closest("[data-edit-sc]");
+  const del = e.target.closest("[data-del-sc]");
+  if (ed) editScheduled(+ed.dataset.editSc);
+  if (del) {
+    if (!isAdmin()) return;
+    state.scheduled.splice(+del.dataset.delSc, 1);
+    refresh({ push: true });
+  }
+});
+
+document.getElementById("addCandBtn").onclick = () => editAvailability(-1);
+document.getElementById("addSchedBtn").onclick = () => editScheduled(-1);
+document.getElementById("addSubBtn").onclick = () => editSubmission(-1);
+["syncNowBtn","syncNowBtn2","syncNowBtn3","syncNowBtn4","pushBtn"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.onclick = () => pushToSheet(false);
+});
+document.getElementById("subTableWrap").addEventListener("click", e => {
+  const ed = e.target.closest("[data-edit-sub]");
+  const del = e.target.closest("[data-del-sub]");
+  if (ed) editSubmission(+ed.dataset.editSub);
+  if (del) {
+    if (!isAdmin()) return;
+    if (confirm("Delete this submission row?")) {
+      state.submissions.splice(+del.dataset.delSub, 1);
+      refresh({ push: true });
+    }
+  }
+});
+
+["subSearch","subStatusFilter","subFilterJpc","subFilterRecruiter","subFilterBdm","subFilterDateFrom","subFilterDateTo"].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener(el.tagName === "INPUT" && el.type === "search" ? "input" : "change", () => renderSubmissions());
+});
+const clearBtn = document.getElementById("subFilterClear");
+if (clearBtn) clearBtn.onclick = () => {
+  ["subSearch","subFilterJpc","subFilterRecruiter","subStatusFilter","subFilterBdm","subFilterDateFrom","subFilterDateTo"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  renderSubmissions();
+};
+
+// Admin: add Type | Value into local lists then optional save
+async function saveConfigToSheet() {
+  if (!isAdmin()) { toast("Only Admin can save Config", "error"); return false; }
+  config.recruiters = linesToArr(document.getElementById("cfgRecruiters").value);
+  config.bdms = linesToArr(document.getElementById("cfgBdms").value);
+  config.statuses = linesToArr(document.getElementById("cfgStatuses").value);
+  const dedupe = (arr) => {
+    const seen = new Set();
+    const out = [];
+    (arr || []).forEach(v => {
+      const k = String(v).toLowerCase();
+      if (!seen.has(k)) { seen.add(k); out.push(String(v).trim()); }
+    });
+    return out;
+  };
+  config.recruiters = dedupe(config.recruiters);
+  config.bdms = dedupe(config.bdms);
+  config.statuses = dedupe(config.statuses);
+  persistConfig();
+  fillConfigTextareas();
+  const url = sheetUrl();
+  if (!url) { toast("Saved locally — set Web App URL to write Config sheet", "check"); return false; }
+
+  const body = JSON.stringify({
+    action: "saveConfig",
+    config: {
+      recruiters: config.recruiters,
+      bdms: config.bdms,
+      statuses: config.statuses
+    }
+  });
+
+  try {
+    // 1) POST (full body)
+    await fetch(url, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body
+    });
+  } catch (e) { console.warn("config POST", e); }
+
+  try {
+    // 2) GET with payload (readable response)
+    const payload = encodeURIComponent(JSON.stringify({
+      recruiters: config.recruiters,
+      bdms: config.bdms,
+      statuses: config.statuses
+    }));
+    const sep = url.includes("?") ? "&" : "?";
+    const res = await fetch(url + sep + "action=saveConfig&payload=" + payload + "&_=" + Date.now(), {
+      method: "GET",
+      cache: "no-store"
+    });
+    const json = await res.json();
+    if (json && json.ok === false) throw new Error(json.error || "save failed");
+    if (json && json.config) {
+      config = {
+        recruiters: json.config.recruiters || config.recruiters,
+        bdms: json.config.bdms || config.bdms,
+        statuses: json.config.statuses || config.statuses
+      };
+      persistConfig();
+      fillConfigTextareas();
+    }
+    setSyncUI(true, "Config saved · " + new Date().toLocaleTimeString());
+    toast("Saved to Config sheet (Type | Value)", "cloud_done");
+    return true;
+  } catch (e) {
+    console.error(e);
+    // POST may still have worked (no-cors)
+    toast("Config push sent — Pull to verify sheet", "cloud_upload");
+    return false;
+  }
+}
+
+const cfgAddBtn = document.getElementById("cfgAddRowBtn");
+if (cfgAddBtn) cfgAddBtn.onclick = async () => {
+  if (!isAdmin()) return;
+  const type = (document.getElementById("cfgNewType")?.value || "Recruiter").trim();
+  const val = (document.getElementById("cfgNewValue")?.value || "").trim();
+  if (!val) { toast("Enter a value", "error"); return; }
+  const key = type.toLowerCase() === "bdm" ? "bdms"
+    : type.toLowerCase() === "status" ? "statuses" : "recruiters";
+  if (!config[key]) config[key] = [];
+  if (!config[key].some(x => String(x).toLowerCase() === val.toLowerCase())) {
+    config[key].push(val);
+    persistConfig();
+    fillConfigTextareas();
+    document.getElementById("cfgNewValue").value = "";
+  } else {
+    toast("Already in list", "info");
+    return;
+  }
+  // Write this row + full list to Config sheet
+  const url = sheetUrl();
+  if (url) {
+    try {
+      const sep = url.includes("?") ? "&" : "?";
+      const addUrl = url + sep + "action=addConfig&type=" + encodeURIComponent(type) +
+        "&value=" + encodeURIComponent(val) + "&_=" + Date.now();
+      const res = await fetch(addUrl, { cache: "no-store" });
+      const json = await res.json();
+      if (json && json.config) {
+        config = {
+          recruiters: json.config.recruiters || config.recruiters,
+          bdms: json.config.bdms || config.bdms,
+          statuses: json.config.statuses || config.statuses
+        };
+        persistConfig();
+        fillConfigTextareas();
+      }
+      toast("Added to Config sheet: " + type + " | " + val, "cloud_done");
+    } catch (e) {
+      console.warn(e);
+      await saveConfigToSheet();
+    }
+  } else {
+    toast("Added locally — set Web App URL to write sheet", "check");
+  }
+};
+
+document.getElementById("pullBtn").onclick = pullFromSheet;
+document.getElementById("enableNotifyBtn").onclick = enableAlerts;
+document.getElementById("enableNotifyBtn2").onclick = enableAlerts;
+document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep played", "volume_up"); };
+
+document.getElementById("sheetUrl").value = sheetUrl();
+document.getElementById("remindMins").value = remindMins();
+document.getElementById("saveSettingsBtn").onclick = () => {
+  const url = document.getElementById("sheetUrl").value.trim();
+  localStorage.setItem("emb_remind", String(parseInt(document.getElementById("remindMins").value, 10) || 10));
+  if (!url) {
+    // Clear portal local data only — sheet is not touched
+    localStorage.removeItem("emb_sheet_url");
+    state = { availability: [], scheduled: [], submissions: [] };
+    persist();
+    dirty = false;
+    refresh();
+    setSyncUI(false, "Not connected");
+    toast("URL cleared — local portal data removed (sheet unchanged)", "link_off");
+    return;
+  }
+  localStorage.setItem("emb_sheet_url", url);
+  toast("Saved", "check");
+  setSyncUI(true, "Connected");
+  pullFromSheet();
+};
+
+document.getElementById("saveConfigBtn").onclick = () => saveConfigToSheet();
+
+document.getElementById("switchUserBtn").onclick = () => {
+  showLogin(true);
+};
+
+document.getElementById("logoutBtn").onclick = () => {
+  currentUser = null;
+  try { localStorage.removeItem(USER_KEY); } catch (_) {}
+  updateUserBadge();
+  toast("Logged out — enter your name to continue", "logout");
+  showLogin(true);
+};
+
+function showLogin(force) {
+  if (currentUser && !force) return;
+  document.getElementById("loginNameInput").value = currentUser ? currentUser.name : "";
+  document.getElementById("loginOverlay").classList.add("open");
+  setTimeout(() => document.getElementById("loginNameInput").focus(), 100);
+}
+
+async function completeLogin() {
+  const name = document.getElementById("loginNameInput").value.trim();
+  if (!name) { toast("Enter your name", "error"); return; }
+
+  const url = sheetUrl();
+  // Always refresh Management users before role decision
+  if (url) {
+    const ok = await fetchUsersFromSheet();
+    if (!ok) toast("Could not load Management sheet — using last known roles", "warning");
+  }
+
+  let role = resolveRoleForName(name);
+  currentUser = { name, role };
+  persistUser();
+  updateUserBadge();
+  document.getElementById("loginOverlay").classList.remove("open");
+
+  if (!config.recruiters.some(r => String(r).toLowerCase() === name.toLowerCase())) {
+    config.recruiters.push(name);
+    persistConfig();
+    fillConfigTextareas();
+  }
+
+  if (url) {
+    try {
+      const sep = url.includes("?") ? "&" : "?";
+      // Register only adds NEW names as User — never downgrades existing Admin
+      await fetch(url + sep + "action=registerUser&name=" + encodeURIComponent(name) + "&_=" + Date.now(), { cache: "no-store" });
+      await fetchUsersFromSheet();
+      await pullFromSheet();
+      role = resolveRoleForName(name);
+      currentUser.role = role;
+      persistUser();
+      updateUserBadge();
+    } catch (e) { console.warn(e); }
+  }
+
+  const adminNames = (users || []).filter(u => String(u.role || "").toLowerCase().indexOf("admin") !== -1).map(u => u.name);
+  if (isAdmin()) {
+    toast("Signed in as " + name + " (Admin)", "verified_user");
+  } else {
+    toast("Signed in as " + name + " (User)" + (adminNames.length ? " · Admins: " + adminNames.join(", ") : " · No Admin rows in Management"), "person");
+  }
+}
+
+document.getElementById("loginContinueBtn").onclick = completeLogin;
+document.getElementById("loginNameInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") completeLogin();
+});
+
+function toast(msg, ic) {
+  const t = document.getElementById("toast");
+  t.innerHTML = (ic ? icon(ic) + " " : "") + esc(msg);
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+/* Clear old demo data key if present so UI stays empty */
+try {
+  localStorage.removeItem("emb_dash_v2");
+  localStorage.removeItem("emb_dash_v3");
+  localStorage.removeItem("emb_scheduler_v1");
+} catch (_) {}
+
+// Initial paint only — never auto-push on load (would wipe the sheet)
+if (currentUser) {
+  currentUser.role = resolveRoleForName(currentUser.name);
+  persistUser();
+}
+updateUserBadge();
+fillConfigTextareas();
+refresh();
+showLogin(false);
+if (sheetUrl()) {
+  setSyncUI(true, "Connecting…");
+  pullFromSheet();
+} else {
+  setSyncUI(false, "Not connected");
+}
+if (Notification.permission === "granted") scheduleReminders();
+
+/* Disable right-click except on form fields (copy/paste allowed) */
+document.addEventListener("contextmenu", function (e) {
+  const t = e.target;
+  if (!t) { e.preventDefault(); return; }
+  const tag = (t.tagName || "").toLowerCase();
+  const editable = tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable;
+  if (!editable) e.preventDefault();
+}, true);
+
+</script>
+</body>
+</html>
