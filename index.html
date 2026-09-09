@@ -726,7 +726,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand">Sparix Global<span>Interview Dashboard</span></div>
+    <div class="brand">Sparix Global<span>Talent Interview Dashboard</span></div>
     <button type="button" class="nav-btn active" data-panel="overview">
       <span class="material-symbols-outlined">dashboard</span> Overview
     </button>
@@ -761,7 +761,7 @@
       <div class="topbar">
         <div>
           <h1>Dashboard</h1>
-          <p>Submission analytics</p>
+          <p>Submission analytics · monochrome overview</p>
         </div>
         <div class="actions">
           <button type="button" class="btn btn-teal" id="enableNotifyBtn">
@@ -2628,6 +2628,16 @@ if (sheetUrl()) {
   setSyncUI(false, "Not connected");
 }
 if (Notification.permission === "granted") scheduleReminders();
+
+/* Disable right-click except on form fields (copy/paste allowed) */
+document.addEventListener("contextmenu", function (e) {
+  const t = e.target;
+  if (!t) { e.preventDefault(); return; }
+  const tag = (t.tagName || "").toLowerCase();
+  const editable = tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable;
+  if (!editable) e.preventDefault();
+}, true);
+
 </script>
 </body>
 </html>
