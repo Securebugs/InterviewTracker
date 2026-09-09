@@ -3,9 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sparix Global · Talent Interview Dashboard</title>
-  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+<title>Sparix Interview Dashboard</title>
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..700,0..1,-50..200&display=swap">
@@ -901,7 +899,7 @@
       </div>
       <div class="settings-card">
         <h3>Google Apps Script URL</h3>
-        <p>Deploy the script as <strong>Anyone</strong>, paste the Web App <code>/exec</code> URL here, and also put the same URL in the HTML constant <code>DEFAULT_SHEET_URL</code> before publishing to GitHub Pages so every laptop shares one sheet.</p>
+        <p>Deploy the script, then paste the Web App URL. The dashboard pulls on load and pushes after every edit.</p>
         <div class="field">
           <label>Web App URL</label>
           <input type="url" id="sheetUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
@@ -1023,16 +1021,6 @@
 <script>
 const STORE_KEY = "emb_dash_v5";
 const USER_KEY = "emb_user_v1";
-
-/**
- * IMPORTANT for GitHub Pages / multi-device:
- * Paste your Google Apps Script Web App URL (/exec) here.
- * Then every laptop uses the same sheet without re-entering the URL.
- * Example: "https://script.google.com/macros/s/AKfycbx.../exec"
- * Deploy script as: Execute as Me · Who has access: Anyone
- */
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbwpmxXjrsPEs2cwpdEPAjRqXQmC5vW9sbfOVPm1F7VBwnsai1sM1s4juhCGUvN3fRzg/exec";
-
 const DEFAULT = { availability: [], scheduled: [], submissions: [] };
 const DEFAULT_CONFIG = {
   recruiters: ["Nandan", "Nitish", "Nitya", "Sakshi"],
@@ -1657,9 +1645,7 @@ function refresh(opts) {
 
 /* ---------- Sheet sync ---------- */
 function sheetUrl() {
-  const local = (localStorage.getItem("emb_sheet_url") || "").trim();
-  if (local) return local;
-  return (DEFAULT_SHEET_URL || "").trim();
+  return (localStorage.getItem("emb_sheet_url") || "").trim();
 }
 function setSyncUI(ok, msg) {
   const dot = document.getElementById("syncDot");
@@ -2626,20 +2612,6 @@ try {
   localStorage.removeItem("emb_scheduler_v1");
 } catch (_) {}
 
-/* Disable right-click on page; allow on inputs for copy/paste */
-document.addEventListener("contextmenu", function (e) {
-  const t = e.target;
-  if (!t) { e.preventDefault(); return; }
-  const tag = (t.tagName || "").toLowerCase();
-  if (tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable) {
-    return; // allow
-  }
-  if (t.closest && t.closest("input, textarea, select, [contenteditable='true']")) {
-    return;
-  }
-  e.preventDefault();
-}, { capture: true });
-
 // Initial paint only — never auto-push on load (would wipe the sheet)
 if (currentUser) {
   currentUser.role = resolveRoleForName(currentUser.name);
@@ -2649,12 +2621,6 @@ updateUserBadge();
 fillConfigTextareas();
 refresh();
 showLogin(false);
-
-// Auto-fill settings field from effective URL
-(function () {
-  const el = document.getElementById("sheetUrl");
-  if (el && !el.value) el.value = sheetUrl();
-})();
 if (sheetUrl()) {
   setSyncUI(true, "Connecting…");
   pullFromSheet();
