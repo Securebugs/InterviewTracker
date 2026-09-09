@@ -6,6 +6,8 @@
 <title>Sparix Interview Dashboard</title>
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..700,0..1,-50..200&display=swap">
 <style>
   :root {
@@ -761,7 +763,7 @@
       <div class="topbar">
         <div>
           <h1>Dashboard</h1>
-          <p>Submission analytics · monochrome overview</p>
+          <p>Submission analytics</p>
         </div>
         <div class="actions">
           <button type="button" class="btn btn-teal" id="enableNotifyBtn">
@@ -899,7 +901,7 @@
       </div>
       <div class="settings-card">
         <h3>Google Apps Script URL</h3>
-        <p>Deploy the script, then paste the Web App URL. The dashboard pulls on load and pushes after every edit.</p>
+        <p>Deploy the script as <strong>Anyone</strong>, paste the Web App <code>/exec</code> URL here.</p>
         <div class="field">
           <label>Web App URL</label>
           <input type="url" id="sheetUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
@@ -1021,6 +1023,16 @@
 <script>
 const STORE_KEY = "emb_dash_v5";
 const USER_KEY = "emb_user_v1";
+
+/**
+ * IMPORTANT for GitHub Pages / multi-device:
+ * Paste your Google Apps Script Web App URL (/exec) here.
+ * Then every laptop uses the same sheet without re-entering the URL.
+ * Example: "https://script.google.com/macros/s/AKfycbx.../exec"
+ * Deploy script as: Execute as Me · Who has access: Anyone
+ */
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzIKuLlb9QB4iB3g_Y04cOU_wSYUzhA0zAX2JLQbzs-o32gBnVv7CPsc-hOuuLNxT76/exec";
+
 const DEFAULT = { availability: [], scheduled: [], submissions: [] };
 const DEFAULT_CONFIG = {
   recruiters: ["Nandan", "Nitish", "Nitya", "Sakshi"],
@@ -1032,6 +1044,15 @@ let state = JSON.parse(JSON.stringify(DEFAULT));
 let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 let users = []; // filled only from Management sheet on pull/login
 let currentUser = null; // { name, role }
+
+// Alert "already fired" keys — must exist before any refresh/scheduleReminders
+let fired;
+try {
+  fired = new Set(JSON.parse(localStorage.getItem("emb_fired_v3") || "[]"));
+} catch (_) {
+  fired = new Set();
+}
+
 
 try {
   const raw = localStorage.getItem(STORE_KEY);
@@ -1049,49 +1070,71 @@ try {
   if (us) users = JSON.parse(us);
 } catch (_) {}
 
+function normName(s) {
+  return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isAdminRole(role) {
+  return String(role || "").trim().toLowerCase().indexOf("admin") !== -1;
+}
+
 function isAdmin() {
-  if (!currentUser) return false;
-  if (String(currentUser.role || "").toLowerCase().indexOf("admin") !== -1) return true;
+  if (!currentUser || !currentUser.name) return false;
+  if (isAdminRole(currentUser.role)) return true;
   return resolveRoleForName(currentUser.name) === "Admin";
 }
 
 function resolveRoleForName(name) {
-  const n = String(name || "").trim().toLowerCase();
+  const n = normName(name);
   if (!n) return "User";
-  const list = users || [];
-  // exact match first
-  let match = list.find(u => String(u.name || "").trim().toLowerCase() === n);
-  // fallback: sheet name contains typed name or vice-versa (handles small typos / suffixes)
+  const list = Array.isArray(users) ? users : [];
+  // 1) exact
+  let match = list.find(u => normName(u.name) === n);
+  // 2) equal ignoring punctuation
   if (!match) {
+    const np = n.replace(/[^a-z0-9]/g, "");
+    match = list.find(u => normName(u.name).replace(/[^a-z0-9]/g, "") === np);
+  }
+  // 3) one contains the other (min 3 chars)
+  if (!match && n.length >= 3) {
     match = list.find(u => {
-      const un = String(u.name || "").trim().toLowerCase();
-      return un === n || un.startsWith(n) || n.startsWith(un);
+      const un = normName(u.name);
+      return un.indexOf(n) !== -1 || n.indexOf(un) !== -1;
     });
   }
   if (!match) return "User";
-  const role = String(match.role || "").trim().toLowerCase();
-  return role.indexOf("admin") !== -1 ? "Admin" : "User";
+  return isAdminRole(match.role) ? "Admin" : "User";
 }
 
 async function fetchUsersFromSheet() {
   const url = sheetUrl();
-  if (!url) return false;
-  try {
-    const sep = url.includes("?") ? "&" : "?";
-    // Prefer lightweight users endpoint; fall back to full get
-    let res = await fetch(url + sep + "action=users&_=" + Date.now(), { cache: "no-store" });
-    let json = await res.json();
-    if (!Array.isArray(json.users)) {
-      res = await fetch(url + sep + "_=" + Date.now(), { cache: "no-store" });
-      json = await res.json();
+  if (!url) {
+    console.warn("No sheet URL — cannot load Management admins");
+    return false;
+  }
+  const sep = url.includes("?") ? "&" : "?";
+  const tryUrls = [
+    url + sep + "action=users&_=" + Date.now(),
+    url + sep + "_=" + Date.now()
+  ];
+  for (let i = 0; i < tryUrls.length; i++) {
+    try {
+      const res = await fetch(tryUrls[i], { cache: "no-store", redirect: "follow" });
+      const text = await res.text();
+      let json;
+      try { json = JSON.parse(text); } catch (_) {
+        console.warn("Users response not JSON", text.slice(0, 200));
+        continue;
+      }
+      if (Array.isArray(json.users)) {
+        users = json.users;
+        try { localStorage.setItem("emb_users_v1", JSON.stringify(users)); } catch (_) {}
+        console.log("Management users loaded:", users);
+        return true;
+      }
+    } catch (e) {
+      console.warn("fetchUsers try", i, e);
     }
-    if (Array.isArray(json.users)) {
-      users = json.users;
-      try { localStorage.setItem("emb_users_v1", JSON.stringify(users)); } catch (_) {}
-      return true;
-    }
-  } catch (e) {
-    console.warn("fetchUsers", e);
   }
   return false;
 }
@@ -1625,7 +1668,10 @@ function renderStats() {
 }
 
 
-let dirty = false; // true only after user edits — prevents wiping sheet on load
+
+let dirty = false; // true only after user edits
+let syncing = false;
+let autoPullTimer = null;
 
 function refresh(opts) {
   opts = opts || {};
@@ -1643,22 +1689,102 @@ function refresh(opts) {
   }
 }
 
-/* ---------- Sheet sync ---------- */
+/* ---------- Sheet sync (multi-user safe) ---------- */
 function sheetUrl() {
-  return (localStorage.getItem("emb_sheet_url") || "").trim();
+  const local = (localStorage.getItem("emb_sheet_url") || "").trim();
+  if (local) return local;
+  return (DEFAULT_SHEET_URL || "").trim();
 }
 function setSyncUI(ok, msg) {
   const dot = document.getElementById("syncDot");
   const lab = document.getElementById("syncLabel");
-  dot.className = "sync-dot" + (ok === true ? " ok" : ok === false ? " err" : "");
-  lab.textContent = msg || (ok ? "Synced" : "Not connected");
+  if (dot) dot.className = "sync-dot" + (ok === true ? " ok" : ok === false ? " err" : "");
+  if (lab) lab.textContent = msg || (ok ? "Synced" : "Not connected");
 }
+
+/** Merge remote + local by key; local wins on same key, remote-only rows kept */
+function mergeByKey(localArr, remoteArr, keyFn) {
+  const map = new Map();
+  (remoteArr || []).forEach(r => {
+    const k = keyFn(r);
+    if (k) map.set(k, r);
+  });
+  (localArr || []).forEach(r => {
+    const k = keyFn(r);
+    if (k) map.set(k, r); // local overwrites same key
+  });
+  return Array.from(map.values());
+}
+
+function keyAvailability(r) {
+  return (String(r.role || "").trim() + "||" + String(r.name || "").trim()).toLowerCase();
+}
+function keyScheduled(r) {
+  return (String(r.candidate || "").trim() + "||" + String(r.when || "").trim()).toLowerCase();
+}
+function keySubmission(r) {
+  return (String(r.jpc || "").trim() + "||" + String(r.candidateName || "").trim()).toLowerCase();
+}
+
+async function fetchSheetJson() {
+  const url = sheetUrl();
+  if (!url) return null;
+  const sep = url.includes("?") ? "&" : "?";
+  const res = await fetch(url + sep + "_=" + Date.now(), {
+    method: "GET",
+    redirect: "follow",
+    cache: "no-store"
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const json = await res.json();
+  if (json && json.ok === false) throw new Error(json.error || "Sheet error");
+  return json;
+}
+
+function applyRemoteJson(json, { mergeLocal }) {
+  if (!json) return;
+  if (mergeLocal) {
+    if (Array.isArray(json.availability)) {
+      state.availability = mergeByKey(state.availability, json.availability, keyAvailability);
+    }
+    if (Array.isArray(json.scheduled)) {
+      state.scheduled = mergeByKey(state.scheduled, json.scheduled, keyScheduled);
+    }
+    if (Array.isArray(json.submissions)) {
+      state.submissions = mergeByKey(state.submissions, json.submissions, keySubmission);
+    }
+  } else {
+    if (Array.isArray(json.availability)) state.availability = json.availability;
+    if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
+    if (Array.isArray(json.submissions)) state.submissions = json.submissions;
+  }
+  if (json.config) {
+    config = {
+      recruiters: json.config.recruiters || config.recruiters,
+      bdms: json.config.bdms || config.bdms,
+      statuses: json.config.statuses || config.statuses
+    };
+    persistConfig();
+    fillConfigTextareas();
+  }
+  if (Array.isArray(json.users) && json.users.length) {
+    users = json.users;
+    try { localStorage.setItem("emb_users_v1", JSON.stringify(users)); } catch (_) {}
+  }
+  if (currentUser) {
+    currentUser.role = resolveRoleForName(currentUser.name);
+    persistUser();
+    updateUserBadge();
+  }
+}
+
 let syncTimer = null;
 function queueSync() {
   if (!sheetUrl()) return;
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => pushToSheet(true), 800);
 }
+
 async function pushToSheet(silent) {
   const url = sheetUrl();
   if (!url) {
@@ -1666,71 +1792,61 @@ async function pushToSheet(silent) {
     setSyncUI(false, "No URL");
     return;
   }
-  const payload = {
-    action: "upsert",
-    availability: state.availability,
-    scheduled: state.scheduled,
-    submissions: state.submissions,
-    updatedAt: new Date().toISOString()
-  };
+  if (syncing) return;
+  syncing = true;
   try {
-    // text/plain avoids CORS preflight; Apps Script still receives body
+    // 1) Pull latest first so we do not wipe other users' rows
+    try {
+      const remote = await fetchSheetJson();
+      applyRemoteJson(remote, { mergeLocal: true });
+    } catch (e) {
+      console.warn("pre-push pull failed", e);
+    }
+
+    const payload = {
+      action: "upsert",
+      availability: state.availability,
+      scheduled: state.scheduled,
+      submissions: state.submissions,
+      updatedAt: new Date().toISOString()
+    };
     await fetch(url, {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
     });
+    dirty = false;
+    persist();
+    renderAvailability();
+    renderScheduled();
+    renderSubmissions();
+    renderStats();
     setSyncUI(true, "Pushed · " + new Date().toLocaleTimeString());
     if (!silent) toast("Synced to Google Sheet", "cloud_done");
   } catch (e) {
     console.error(e);
     setSyncUI(false, "Push failed");
     if (!silent) toast("Push failed — check URL", "error");
+  } finally {
+    syncing = false;
   }
 }
 
-async function pullFromSheet() {
+async function pullFromSheet(silent) {
   const url = sheetUrl();
-  if (!url) { toast("Add Web App URL first", "link_off"); return; }
-  setSyncUI(null, "Pulling…");
+  if (!url) {
+    if (!silent) toast("Add Web App URL first", "link_off");
+    return;
+  }
+  if (syncing) return;
+  syncing = true;
+  setSyncUI(null, silent ? "Auto-pull…" : "Pulling…");
   try {
-    const sep = url.includes("?") ? "&" : "?";
-    const res = await fetch(url + sep + "action=get&_=" + Date.now(), {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store"
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const json = await res.json();
-    if (json && json.ok === false) throw new Error(json.error || "Sheet error");
-    if (Array.isArray(json.availability)) state.availability = json.availability;
-    if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
-    if (Array.isArray(json.submissions)) state.submissions = json.submissions;
-    if (json.config) {
-      config = {
-        recruiters: json.config.recruiters || config.recruiters,
-        bdms: json.config.bdms || config.bdms,
-        statuses: json.config.statuses || config.statuses
-      };
-      persistConfig();
-      fillConfigTextareas();
-    }
-    if (Array.isArray(json.users)) {
-      users = json.users;
-      try { localStorage.setItem("emb_users_v1", JSON.stringify(users)); } catch (_) {}
-      if (currentUser) {
-        const prev = currentUser.role;
-        currentUser.role = resolveRoleForName(currentUser.name);
-        persistUser();
-        if (prev !== currentUser.role) {
-          toast("Role updated from Management sheet: " + currentUser.role, "badge");
-        }
-      }
-      updateUserBadge();
-    }
+    const json = await fetchSheetJson();
+    // If user has unsaved local edits, merge; otherwise take sheet as source of truth
+    applyRemoteJson(json, { mergeLocal: dirty });
     persist();
-    dirty = false;
     renderAvailability();
     renderScheduled();
     renderSubmissions();
@@ -1738,18 +1854,32 @@ async function pullFromSheet() {
     renderUpcomingInto("alertsList");
     renderStats();
     scheduleReminders();
-    setSyncUI(true, "Pulled · " + new Date().toLocaleTimeString());
-    toast("Loaded from Google Sheet", "cloud_download");
+    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + new Date().toLocaleTimeString());
+    if (!silent) toast("Loaded from Google Sheet", "cloud_download");
   } catch (e) {
     console.error("Pull error", e);
     setSyncUI(false, "Pull failed");
-    toast("Pull failed: " + (e.message || "check deployment / Anyone access"), "error");
+    if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
+  } finally {
+    syncing = false;
   }
 }
 
-/* ---------- Notifications ---------- */
-const fired = new Set(JSON.parse(localStorage.getItem("emb_fired_v3") || "[]"));
+/** Background pull every 5s — keeps all open dashboards aligned */
+function startAutoPull() {
+  if (autoPullTimer) clearInterval(autoPullTimer);
+  autoPullTimer = setInterval(() => {
+    if (!sheetUrl()) return;
+    if (syncing) return;
+    if (document.hidden) return; // tab not visible
+    // Always soft-pull; merge if dirty so local edits are not discarded
+    pullFromSheet(true);
+  }, 5000);
+}
+
+
 function remember(k) {
+  if (!fired) fired = new Set();
   fired.add(k);
   localStorage.setItem("emb_fired_v3", JSON.stringify([...fired].slice(-150)));
 }
@@ -1895,14 +2025,15 @@ function showInterviewAlert(rows) {
 
 function scheduleReminders() {
   if (remTimer) clearInterval(remTimer);
-  // Run even without Notification permission — in-page popup still works after enable
+  if (typeof fired === "undefined" || !fired) {
+    try { fired = new Set(JSON.parse(localStorage.getItem("emb_fired_v3") || "[]")); }
+    catch (_) { fired = new Set(); }
+  }
   const tick = () => {
-    if (alertActive) return; // wait until current popup finishes
+    if (alertActive) return;
     const mins = remindMins();
     const now = Date.now();
-    const windowMs = 90 * 1000; // 90s catch window after fire time
-
-    // Group by interview start time (same minute)
+    const windowMs = 90 * 1000;
     const due = [];
     collectAlertTargets().forEach(row => {
       const fireAt = row.ts.getTime() - mins * 60000;
@@ -2552,43 +2683,63 @@ async function completeLogin() {
   if (!name) { toast("Enter your name", "error"); return; }
 
   const url = sheetUrl();
-  // Always refresh Management users before role decision
-  if (url) {
-    const ok = await fetchUsersFromSheet();
-    if (!ok) toast("Could not load Management sheet — using last known roles", "warning");
+  if (!url) {
+    toast("Set Web App URL first (Sheet and setup)", "link_off");
+    return;
   }
 
+  toast("Checking Management sheet…", "hourglass_top");
+  const ok = await fetchUsersFromSheet();
+  if (!ok) {
+    toast("Cannot load Management — redeploy Apps Script (Anyone) and check URL", "error");
+  }
+
+  // Decide role ONLY from Management list
   let role = resolveRoleForName(name);
-  currentUser = { name, role };
+  currentUser = { name: name, role: role };
   persistUser();
   updateUserBadge();
+
+  // Register new names as User only (existing Admin rows kept)
+  try {
+    const sep = url.includes("?") ? "&" : "?";
+    await fetch(url + sep + "action=registerUser&name=" + encodeURIComponent(name) + "&_=" + Date.now(), {
+      cache: "no-store",
+      redirect: "follow"
+    });
+    await fetchUsersFromSheet();
+    role = resolveRoleForName(name);
+    currentUser.role = role;
+    persistUser();
+    updateUserBadge();
+  } catch (e) { console.warn("register", e); }
+
+  // Pull full data (does not clear users if response lacks them)
+  try { await pullFromSheet(); } catch (_) {}
+  role = resolveRoleForName(name);
+  currentUser.role = role;
+  persistUser();
+  updateUserBadge();
+
   document.getElementById("loginOverlay").classList.remove("open");
 
-  if (!config.recruiters.some(r => String(r).toLowerCase() === name.toLowerCase())) {
+  if (!config.recruiters.some(r => normName(r) === normName(name))) {
     config.recruiters.push(name);
     persistConfig();
     fillConfigTextareas();
   }
 
-  if (url) {
-    try {
-      const sep = url.includes("?") ? "&" : "?";
-      // Register only adds NEW names as User — never downgrades existing Admin
-      await fetch(url + sep + "action=registerUser&name=" + encodeURIComponent(name) + "&_=" + Date.now(), { cache: "no-store" });
-      await fetchUsersFromSheet();
-      await pullFromSheet();
-      role = resolveRoleForName(name);
-      currentUser.role = role;
-      persistUser();
-      updateUserBadge();
-    } catch (e) { console.warn(e); }
-  }
-
-  const adminNames = (users || []).filter(u => String(u.role || "").toLowerCase().indexOf("admin") !== -1).map(u => u.name);
+  const adminNames = (users || []).filter(u => isAdminRole(u.role)).map(u => u.name);
+  console.log("Login", { name, role, users, adminNames });
   if (isAdmin()) {
-    toast("Signed in as " + name + " (Admin)", "verified_user");
+    toast("Admin: " + name, "verified_user");
   } else {
-    toast("Signed in as " + name + " (User)" + (adminNames.length ? " · Admins: " + adminNames.join(", ") : " · No Admin rows in Management"), "person");
+    toast(
+      "User: " + name + (adminNames.length
+        ? " · Sheet admins: " + adminNames.join(", ") + " (type the name exactly)"
+        : " · Management has no Admin rows or script not updated"),
+      "person"
+    );
   }
 }
 
@@ -2612,31 +2763,54 @@ try {
   localStorage.removeItem("emb_scheduler_v1");
 } catch (_) {}
 
-// Initial paint only — never auto-push on load (would wipe the sheet)
+/* Disable right-click on page; allow on inputs for copy/paste */
+document.addEventListener("contextmenu", function (e) {
+  const t = e.target;
+  if (!t) { e.preventDefault(); return; }
+  const tag = (t.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable) {
+    return; // allow
+  }
+  if (t.closest && t.closest("input, textarea, select, [contenteditable='true']")) {
+    return;
+  }
+  e.preventDefault();
+}, { capture: true });
+
+// Initial paint
 if (currentUser) {
   currentUser.role = resolveRoleForName(currentUser.name);
   persistUser();
 }
 updateUserBadge();
 fillConfigTextareas();
-refresh();
+
+// Sync URL field with storage / DEFAULT_SHEET_URL
+(function () {
+  const el = document.getElementById("sheetUrl");
+  const u = sheetUrl();
+  if (el) {
+    if (u && !el.value) el.value = u;
+    // If user previously typed URL in the box but never saved, pick it up
+    if (!u && el.value && el.value.trim()) {
+      localStorage.setItem("emb_sheet_url", el.value.trim());
+    }
+  }
+})();
+
+try { refresh(); } catch (e) { console.error("refresh", e); }
 showLogin(false);
+
 if (sheetUrl()) {
   setSyncUI(true, "Connecting…");
-  pullFromSheet();
+  pullFromSheet(true).then(() => setSyncUI(true, "Live")).catch(() => {});
+  startAutoPull();
 } else {
-  setSyncUI(false, "Not connected");
+  setSyncUI(false, "Not connected — save Web App URL");
 }
-if (Notification.permission === "granted") scheduleReminders();
-
-/* Disable right-click except on form fields (copy/paste allowed) */
-document.addEventListener("contextmenu", function (e) {
-  const t = e.target;
-  if (!t) { e.preventDefault(); return; }
-  const tag = (t.tagName || "").toLowerCase();
-  const editable = tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable;
-  if (!editable) e.preventDefault();
-}, true);
+try {
+  if (Notification.permission === "granted") scheduleReminders();
+} catch (e) { console.warn(e); }
 
 </script>
 </body>
