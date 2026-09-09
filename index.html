@@ -728,7 +728,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand">Sparix Global<span>Talent Interview Dashboard</span></div>
+    <div class="brand">Sparix Global<span>Interview Dashboard</span></div>
     <button type="button" class="nav-btn active" data-panel="overview">
       <span class="material-symbols-outlined">dashboard</span> Overview
     </button>
@@ -1669,9 +1669,13 @@ function renderStats() {
 
 
 
-let dirty = false; // true only after user edits
-let syncing = false;
+
+let dirty = false;
+let pulling = false;
+let pushing = false;
+let pushQueued = false;
 let autoPullTimer = null;
+let syncTimer = null;
 
 function refresh(opts) {
   opts = opts || {};
@@ -1689,7 +1693,7 @@ function refresh(opts) {
   }
 }
 
-/* ---------- Sheet sync (multi-user safe) ---------- */
+/* ---------- Sheet sync ---------- */
 function sheetUrl() {
   const local = (localStorage.getItem("emb_sheet_url") || "").trim();
   if (local) return local;
@@ -1702,57 +1706,55 @@ function setSyncUI(ok, msg) {
   if (lab) lab.textContent = msg || (ok ? "Synced" : "Not connected");
 }
 
-/** Merge remote + local by key; local wins on same key, remote-only rows kept */
 function mergeByKey(localArr, remoteArr, keyFn) {
   const map = new Map();
-  (remoteArr || []).forEach(r => {
-    const k = keyFn(r);
-    if (k) map.set(k, r);
-  });
-  (localArr || []).forEach(r => {
-    const k = keyFn(r);
-    if (k) map.set(k, r); // local overwrites same key
-  });
+  (remoteArr || []).forEach((r, i) => map.set(keyFn(r, i), r));
+  (localArr || []).forEach((r, i) => map.set(keyFn(r, i), r)); // local wins
   return Array.from(map.values());
 }
+function keyAvailability(r, i) {
+  const k = (String(r.role || "").trim() + "||" + String(r.name || "").trim()).toLowerCase();
+  return k === "||" ? "av-" + i + "-" + JSON.stringify(r).slice(0, 80) : k;
+}
+function keyScheduled(r, i) {
+  const k = (String(r.candidate || "").trim() + "||" + String(r.when || "").trim()).toLowerCase();
+  return k === "||" ? "sc-" + i + "-" + JSON.stringify(r).slice(0, 80) : k;
+}
+function keySubmission(r, i) {
+  const k = (String(r.jpc || "").trim() + "||" + String(r.candidateName || "").trim()).toLowerCase();
+  return k === "||" ? "sub-" + i + "-" + JSON.stringify(r).slice(0, 120) : k;
+}
 
-function keyAvailability(r) {
-  return (String(r.role || "").trim() + "||" + String(r.name || "").trim()).toLowerCase();
-}
-function keyScheduled(r) {
-  return (String(r.candidate || "").trim() + "||" + String(r.when || "").trim()).toLowerCase();
-}
-function keySubmission(r) {
-  return (String(r.jpc || "").trim() + "||" + String(r.candidateName || "").trim()).toLowerCase();
+function fetchWithTimeout(resource, options, ms) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms || 20000);
+  return fetch(resource, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id));
 }
 
 async function fetchSheetJson() {
   const url = sheetUrl();
   if (!url) return null;
   const sep = url.includes("?") ? "&" : "?";
-  const res = await fetch(url + sep + "_=" + Date.now(), {
+  const res = await fetchWithTimeout(url + sep + "_=" + Date.now(), {
     method: "GET",
     redirect: "follow",
     cache: "no-store"
-  });
+  }, 20000);
   if (!res.ok) throw new Error("HTTP " + res.status);
   const json = await res.json();
   if (json && json.ok === false) throw new Error(json.error || "Sheet error");
   return json;
 }
 
-function applyRemoteJson(json, { mergeLocal }) {
+function applyRemoteJson(json, mergeLocal) {
   if (!json) return;
   if (mergeLocal) {
-    if (Array.isArray(json.availability)) {
+    if (Array.isArray(json.availability))
       state.availability = mergeByKey(state.availability, json.availability, keyAvailability);
-    }
-    if (Array.isArray(json.scheduled)) {
+    if (Array.isArray(json.scheduled))
       state.scheduled = mergeByKey(state.scheduled, json.scheduled, keyScheduled);
-    }
-    if (Array.isArray(json.submissions)) {
+    if (Array.isArray(json.submissions))
       state.submissions = mergeByKey(state.submissions, json.submissions, keySubmission);
-    }
   } else {
     if (Array.isArray(json.availability)) state.availability = json.availability;
     if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
@@ -1778,11 +1780,28 @@ function applyRemoteJson(json, { mergeLocal }) {
   }
 }
 
-let syncTimer = null;
 function queueSync() {
   if (!sheetUrl()) return;
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => pushToSheet(true), 800);
+  syncTimer = setTimeout(() => pushToSheet(true), 400);
+}
+
+async function postStateToSheet(payload) {
+  const url = sheetUrl();
+  // Primary POST
+  await fetchWithTimeout(url, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: payload,
+    redirect: "follow"
+  }, 25000);
+  // Backup beacon
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([payload], { type: "text/plain;charset=utf-8" }));
+    }
+  } catch (_) {}
 }
 
 async function pushToSheet(silent) {
@@ -1790,46 +1809,93 @@ async function pushToSheet(silent) {
   if (!url) {
     if (!silent) toast("Add Web App URL in Sheet and setup", "link_off");
     setSyncUI(false, "No URL");
-    return;
+    return false;
   }
-  if (syncing) return;
-  syncing = true;
+  if (pushing) {
+    pushQueued = true;
+    return false;
+  }
+
+  // Wait for in-flight pull (max ~5s)
+  for (let i = 0; i < 50 && pulling; i++) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  pushing = true;
+  setSyncUI(null, "Saving…");
   try {
-    // 1) Pull latest first so we do not wipe other users' rows
+    // Freeze local data so a concurrent pull cannot wipe the new row
+    const localSnap = {
+      availability: JSON.parse(JSON.stringify(state.availability || [])),
+      scheduled: JSON.parse(JSON.stringify(state.scheduled || [])),
+      submissions: JSON.parse(JSON.stringify(state.submissions || []))
+    };
+
     try {
       const remote = await fetchSheetJson();
-      applyRemoteJson(remote, { mergeLocal: true });
+      if (remote) {
+        state.availability = mergeByKey(localSnap.availability, remote.availability || [], keyAvailability);
+        state.scheduled = mergeByKey(localSnap.scheduled, remote.scheduled || [], keyScheduled);
+        state.submissions = mergeByKey(localSnap.submissions, remote.submissions || [], keySubmission);
+        if (remote.config || remote.users) {
+          applyRemoteJson({ config: remote.config, users: remote.users }, false);
+        }
+      }
     } catch (e) {
-      console.warn("pre-push pull failed", e);
+      console.warn("pre-push pull failed — pushing local snapshot", e);
+      state.availability = localSnap.availability;
+      state.scheduled = localSnap.scheduled;
+      state.submissions = localSnap.submissions;
     }
 
-    const payload = {
+    const payload = JSON.stringify({
       action: "upsert",
-      availability: state.availability,
-      scheduled: state.scheduled,
-      submissions: state.submissions,
+      availability: state.availability || [],
+      scheduled: state.scheduled || [],
+      submissions: state.submissions || [],
       updatedAt: new Date().toISOString()
-    };
-    await fetch(url, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
     });
+
+    await postStateToSheet(payload);
+
+    // Verify write landed; retry once if sheet still behind
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const check = await fetchSheetJson();
+      if (check) {
+        const remoteN = (check.submissions || []).length;
+        const localN = (state.submissions || []).length;
+        if (localN > remoteN) {
+          console.warn("Sheet behind local, retry push", remoteN, localN);
+          await postStateToSheet(payload);
+          await new Promise(r => setTimeout(r, 1500));
+        }
+        applyRemoteJson(check, true);
+      }
+    } catch (e) {
+      console.warn("verify", e);
+    }
+
     dirty = false;
     persist();
     renderAvailability();
     renderScheduled();
     renderSubmissions();
     renderStats();
-    setSyncUI(true, "Pushed · " + new Date().toLocaleTimeString());
-    if (!silent) toast("Synced to Google Sheet", "cloud_done");
+    setSyncUI(true, "Saved · " + (state.submissions || []).length + " rows · " + new Date().toLocaleTimeString());
+    if (!silent) toast("Saved to Google Sheet", "cloud_done");
+    return true;
   } catch (e) {
     console.error(e);
     setSyncUI(false, "Push failed");
     if (!silent) toast("Push failed — check URL", "error");
+    return false;
   } finally {
-    syncing = false;
+    pushing = false;
+    if (pushQueued) {
+      pushQueued = false;
+      setTimeout(() => pushToSheet(true), 400);
+    }
   }
 }
 
@@ -1839,13 +1905,12 @@ async function pullFromSheet(silent) {
     if (!silent) toast("Add Web App URL first", "link_off");
     return;
   }
-  if (syncing) return;
-  syncing = true;
-  setSyncUI(null, silent ? "Auto-pull…" : "Pulling…");
+  if (pushing || pulling) return;
+  pulling = true;
+  setSyncUI(null, silent ? "Live…" : "Pulling…");
   try {
     const json = await fetchSheetJson();
-    // If user has unsaved local edits, merge; otherwise take sheet as source of truth
-    applyRemoteJson(json, { mergeLocal: dirty });
+    applyRemoteJson(json, !!dirty);
     persist();
     renderAvailability();
     renderScheduled();
@@ -1854,32 +1919,34 @@ async function pullFromSheet(silent) {
     renderUpcomingInto("alertsList");
     renderStats();
     scheduleReminders();
-    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + new Date().toLocaleTimeString());
-    if (!silent) toast("Loaded from Google Sheet", "cloud_download");
+    const c = (state.submissions || []).length;
+    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + c + " submissions · " + new Date().toLocaleTimeString());
+    if (!silent) toast("Loaded · " + c + " submissions", "cloud_download");
   } catch (e) {
     console.error("Pull error", e);
     setSyncUI(false, "Pull failed");
     if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
   } finally {
-    syncing = false;
+    pulling = false;
   }
 }
 
-/** Background pull every 5s — keeps all open dashboards aligned */
 function startAutoPull() {
   if (autoPullTimer) clearInterval(autoPullTimer);
   autoPullTimer = setInterval(() => {
-    if (!sheetUrl()) return;
-    if (syncing) return;
-    if (document.hidden) return; // tab not visible
-    // Always soft-pull; merge if dirty so local edits are not discarded
-    pullFromSheet(true);
+    if (!sheetUrl() || document.hidden || pushing || pulling) return;
+    // If local edits pending, push (merge+save). Else pull for live updates.
+    if (dirty) pushToSheet(true);
+    else pullFromSheet(true);
   }, 5000);
 }
 
 
 function remember(k) {
-  if (!fired) fired = new Set();
+  if (!fired) {
+    try { fired = new Set(JSON.parse(localStorage.getItem("emb_fired_v3") || "[]")); }
+    catch (_) { fired = new Set(); }
+  }
   fired.add(k);
   localStorage.setItem("emb_fired_v3", JSON.stringify([...fired].slice(-150)));
 }
