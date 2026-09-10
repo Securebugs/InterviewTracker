@@ -810,7 +810,7 @@
     <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
       <span class="material-symbols-outlined">menu</span>
     </button>
-    <div class="mb-title">Sparix Global<span>Interview Dashboard</span></div>
+    <div class="mb-title">Sparix Global<span>Talent Interview Dashboard</span></div>
   </div>
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
@@ -1763,6 +1763,7 @@ let pushing = false;
 let pushQueued = false;
 let autoPullTimer = null;
 let syncTimer = null;
+let sheetEndpointDead = false; // stops noisy polling when the deployed Web App returns 404
 
 function refresh(opts) {
   opts = opts || {};
@@ -1813,23 +1814,57 @@ function keySubmission(r, i) {
 }
 
 function fetchWithTimeout(resource, options, ms) {
+  // Keep the timeout, but preserve the original AbortError so callers can
+  // distinguish a real network timeout from an HTTP error returned by Apps Script.
   const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), ms || 20000);
-  return fetch(resource, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id));
+  const timeoutMs = ms || 20000;
+  const id = setTimeout(() => ctrl.abort(), timeoutMs);
+  return fetch(resource, { ...options, signal: ctrl.signal })
+    .finally(() => clearTimeout(id));
+}
+
+function sheetRequestUrl(extraParams) {
+  const url = sheetUrl();
+  if (!url) return "";
+  const params = new URLSearchParams(extraParams || {});
+  params.set("_", String(Date.now()));
+  return url + (url.includes("?") ? "&" : "?") + params.toString();
 }
 
 async function fetchSheetJson() {
   const url = sheetUrl();
   if (!url) return null;
-  const sep = url.includes("?") ? "&" : "?";
-  const res = await fetchWithTimeout(url + sep + "_=" + Date.now(), {
-    method: "GET",
-    redirect: "follow",
-    cache: "no-store"
-  }, 20000);
+  if (sheetEndpointDead) return null;
+
+  let res;
+  try {
+    res = await fetchWithTimeout(sheetRequestUrl(), {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      credentials: "omit"
+    }, 20000);
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      throw new Error("Sheet request timed out. Check the Apps Script Web App deployment.");
+    }
+    throw e;
+  }
+
+  if (res.status === 404) {
+    sheetEndpointDead = true;
+    throw new Error("HTTP 404 — Google Apps Script Web App URL is unavailable or its deployment was removed. Redeploy the Web App and paste the new /exec URL in Sheet & setup.");
+  }
   if (!res.ok) throw new Error("HTTP " + res.status);
-  const json = await res.json();
+
+  let json;
+  try {
+    json = await res.json();
+  } catch (_) {
+    throw new Error("Sheet returned a non-JSON response. Check that the Apps Script Web App is deployed as /exec.");
+  }
   if (json && json.ok === false) throw new Error(json.error || "Sheet error");
+  sheetEndpointDead = false;
   return json;
 }
 
@@ -1845,7 +1880,13 @@ function applyRemoteJson(json, mergeLocal) {
   } else {
     if (Array.isArray(json.availability)) state.availability = json.availability;
     if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
-    if (Array.isArray(json.submissions)) state.submissions = json.submissions;
+    if (Array.isArray(json.submissions)) {
+      state.submissions = json.submissions.map((r, i) => {
+        const row = { ...r };
+        Object.defineProperty(row, "__sheetOrder", { value: i, writable: true, configurable: true, enumerable: false });
+        return row;
+      });
+    }
   }
   if (json.config) {
     config = {
@@ -1939,7 +1980,11 @@ async function pushToSheet(silent) {
       action: "upsert",
       availability: state.availability || [],
       scheduled: state.scheduled || [],
-      submissions: state.submissions || [],
+      submissions: (state.submissions || []).map(r => {
+        const copy = { ...r };
+        delete copy.__sheetOrder;
+        return copy;
+      }),
       updatedAt: new Date().toISOString()
     });
 
@@ -2010,8 +2055,8 @@ async function pullFromSheet(silent) {
     setSyncUI(true, (silent ? "Live · " : "Pulled · ") + c + " submissions · " + new Date().toLocaleTimeString());
     if (!silent) toast("Loaded · " + c + " submissions", "cloud_download");
   } catch (e) {
-    console.error("Pull error", e);
-    setSyncUI(false, "Pull failed");
+    console.warn("Sheet pull stopped:", e.message || e);
+    setSyncUI(false, sheetEndpointDead ? "Sheet URL unavailable" : "Pull failed");
     if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
   } finally {
     pulling = false;
@@ -2021,7 +2066,7 @@ async function pullFromSheet(silent) {
 function startAutoPull() {
   if (autoPullTimer) clearInterval(autoPullTimer);
   autoPullTimer = setInterval(() => {
-    if (!sheetUrl() || document.hidden || pushing || pulling) return;
+    if (!sheetUrl() || sheetEndpointDead || document.hidden || pushing || pulling) return;
     // If local edits pending, push (merge+save). Else pull for live updates.
     if (dirty) pushToSheet(true);
     else pullFromSheet(true);
@@ -2289,7 +2334,7 @@ function filteredSubmissions() {
   const fromD = from ? new Date(from + "T00:00:00") : null;
   const toD = to ? new Date(to + "T23:59:59") : null;
 
-  return state.submissions.filter(r => {
+  const filtered = (state.submissions || []).filter(r => {
     if (jpc && String(r.jpc || "").toLowerCase() !== jpc) return false;
     if (rec && String(r.recruiterName || "").toLowerCase() !== rec) return false;
     if (st && !(r.currentStatus || "").toLowerCase().includes(st)) return false;
@@ -2306,17 +2351,15 @@ function filteredSubmissions() {
     return blob.includes(q);
   });
 
-  // Newest first: by submission date desc, then original array order (later = newer)
-  const indexed = rows.map((r, idx) => ({ r, idx }));
-  indexed.sort((a, b) => {
-    const da = parseSubDate(a.r.submissionDate);
-    const db = parseSubDate(b.r.submissionDate);
-    if (da && db && da.getTime() !== db.getTime()) return db - da;
-    if (da && !db) return -1;
-    if (!da && db) return 1;
-    return b.idx - a.idx; // later in array = more recently added
-  });
-  return indexed.map(x => x.r);
+  // IMPORTANT: preserve Google Sheet row order. The last row in the Sheet
+  // is considered the newest and is displayed first. Date is NOT used to
+  // reorder rows because the user wants the physical Sheet insertion order.
+  return filtered.map((r, idx) => ({ r, idx })).sort((a, b) => {
+    const ao = Number.isFinite(a.r.__sheetOrder) ? a.r.__sheetOrder : -1;
+    const bo = Number.isFinite(b.r.__sheetOrder) ? b.r.__sheetOrder : -1;
+    if (ao !== bo) return bo - ao;
+    return b.idx - a.idx;
+  }).map(x => x.r);
 }
 
 function renderSubmissions() {
@@ -2637,25 +2680,72 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 function copyAvailabilityRow(index) {
   const c = state.availability[index];
   if (!c) return;
-  const slots = (c.slots || []).map(s => String(s || "").trim()).filter(Boolean);
+
+  const slots = (c.slots || [])
+    .map(s => String(s || "").replace(/[\r\n]+/g, " ").trim())
+    .filter(Boolean);
+
+  const role = String(c.role || "General").replace(/[\r\n]+/g, " ").trim() || "General";
+  const candidate = String(c.name || "").replace(/[\r\n]+/g, " ").trim();
   const headers = ["Candidate"].concat(slots.map((_, i) => "Slot " + (i + 1)));
-  const values = [c.name || ""].concat(slots);
-  // TSV pastes cleanly into Sheets / Excel as columns
-  const tsv = headers.join("\t") + "\n" + values.join("\t");
-  const write = () => {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(tsv);
+  const values = [candidate].concat(slots);
+
+  // Plain-text fallback. Keep the role on its own line, followed by the
+  // same tabular data so Sheets/Excel still get proper rows and columns.
+  const tsv = role + "\n" + headers.join("\t") + "\n" + values.join("\t");
+
+  // Rich clipboard HTML. This intentionally uses TWO tables, matching the
+  // UI/reference image: a small role heading table above the candidate table.
+  const escHtml = value => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+  const border = "border:1px solid #111;";
+  const cell = "padding:4px 6px;border:1px solid #111;font-family:Arial,sans-serif;font-size:14px;line-height:1.2;white-space:nowrap;";
+  const headCell = cell + "font-weight:700;text-align:center;";
+  const roleHtml = `
+    <table style="border-collapse:collapse;margin:0 0 0 0;">
+      <tbody>
+        <tr><td style="${cell}font-weight:700;text-align:left;">${escHtml(role)}</td></tr>
+      </tbody>
+    </table>`;
+
+  const headerHtml = headers.map(h => `<th style="${headCell}">${escHtml(h)}</th>`).join("");
+  const valueHtml = values.map(v => `<td style="${cell}">${escHtml(v)}</td>`).join("");
+  const candidateHtml = `
+    <table style="border-collapse:collapse;margin:0;">
+      <thead><tr>${headerHtml}</tr></thead>
+      <tbody><tr>${valueHtml}</tr></tbody>
+    </table>`;
+
+  const html = `<div style="font-family:Arial,sans-serif;">${roleHtml}${candidateHtml}</div>`;
+
+  const write = async () => {
+    if (navigator.clipboard && window.ClipboardItem) {
+      const item = new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([tsv], { type: "text/plain" })
+      });
+      await navigator.clipboard.write([item]);
+      return;
     }
+
+    // Legacy fallback for browsers that do not support rich ClipboardItem.
     const ta = document.createElement("textarea");
     ta.value = tsv;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
     document.body.appendChild(ta);
     ta.select();
     document.execCommand("copy");
     ta.remove();
-    return Promise.resolve();
   };
+
   write().then(() => {
-    toast("Copied " + (c.name || "candidate") + " · " + slots.length + " slot(s)", "content_copy");
+    toast("Copied " + role + " · " + (candidate || "candidate") + " · " + slots.length + " slot(s)", "content_copy");
   }).catch(() => toast("Copy failed", "error"));
 }
 
@@ -2849,6 +2939,7 @@ document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep
 document.getElementById("sheetUrl").value = sheetUrl();
 document.getElementById("remindMins").value = remindMins();
 document.getElementById("saveSettingsBtn").onclick = () => {
+  sheetEndpointDead = false;
   const url = document.getElementById("sheetUrl").value.trim();
   localStorage.setItem("emb_remind", String(parseInt(document.getElementById("remindMins").value, 10) || 10));
   if (!url) {
