@@ -706,29 +706,115 @@
 
   .panel.active { display: block; }
 
+  /* Mobile top bar + hamburger */
+  .mobile-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #1c1917;
+    color: #fafaf9;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    flex-shrink: 0;
+  }
+  .mobile-bar .mb-title {
+    font-size: 14px; font-weight: 700; letter-spacing: -0.02em;
+  }
+  .mobile-bar .mb-title span {
+    display: block; font-size: 11px; font-weight: 500; color: #a8a29e; margin-top: 2px;
+  }
+  .menu-toggle {
+    border: none;
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .menu-toggle .material-symbols-outlined { font-size: 24px; }
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(28,25,23,.45);
+    z-index: 45;
+  }
+  .sidebar-backdrop.open { display: block; }
+
   @media (max-width: 960px) {
-    .shell { grid-template-columns: 1fr; }
-    .sidebar {
-      flex-direction: row; flex-wrap: wrap; align-items: center;
-      gap: 6px; padding: 14px;
+    .shell {
+      grid-template-columns: 1fr;
+      height: 100vh;
+      max-height: 100vh;
     }
-    .brand { margin: 0 12px 0 0; }
-    .sidebar-foot { display: none; }
+    .mobile-bar { display: flex; }
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: min(280px, 86vw);
+      z-index: 50;
+      transform: translateX(-105%);
+      transition: transform .22s ease;
+      padding: 20px 14px;
+      overflow-y: auto;
+      box-shadow: 8px 0 32px rgba(0,0,0,.25);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar .brand { margin-bottom: 18px; }
+    .sidebar-foot { display: flex; }
+    .main {
+      height: auto;
+      max-height: none;
+      flex: 1;
+      min-height: 0;
+      padding: 14px 14px 20px;
+    }
+    .shell {
+      display: flex;
+      flex-direction: column;
+    }
     .stats { grid-template-columns: repeat(2, 1fr); }
-    .sched-row { grid-template-columns: 1fr 1fr; }
+    .sched-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .topbar h1 { font-size: 18px; }
+    .actions { width: 100%; }
+    .actions .btn { flex: 1; justify-content: center; }
+    .sub-toolbar { flex-direction: column; align-items: stretch; }
+    .sub-toolbar input, .sub-toolbar select, .sub-toolbar input[type="date"] {
+      max-width: none; width: 100%; min-width: 0;
+    }
+    .sub-table-wrap { max-height: calc(100vh - 220px); }
+    .dash-card { max-height: none; }
+    .upcoming-grid { max-height: none; }
   }
   @media (max-width: 560px) {
-    .main { padding: 18px 14px 40px; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
     .stats { grid-template-columns: 1fr 1fr; }
     .candidate-grid { grid-template-columns: 1fr; }
     .slot-grid { grid-template-columns: 1fr; }
+    .cand-card-foot { flex-wrap: wrap; }
   }
 </style>
 </head>
 <body>
 <div class="shell">
-  <aside class="sidebar">
-    <div class="brand">Sparix Global<span>Interview Dashboard</span></div>
+  <div class="mobile-bar">
+    <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+    <div class="mb-title">Sparix Global<span>Interview Dashboard</span></div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Sparix Global<span>Talent Interview Dashboard</span></div>
     <button type="button" class="nav-btn active" data-panel="overview">
       <span class="material-symbols-outlined">dashboard</span> Overview
     </button>
@@ -1342,6 +1428,7 @@ function renderAvailability() {
           </div>
           <div class="cand-card-body">${chips}</div>
           <div class="cand-card-foot">
+            <button type="button" class="btn btn-sm" data-copy-av="${c._i}">${icon("content_copy", "mi-sm")} Copy</button>
             <button type="button" class="btn btn-sm" data-edit-av="${c._i}">${icon("edit", "mi-sm")} Edit</button>
             <button type="button" class="btn btn-sm admin-only" data-del-av="${c._i}">${icon("delete", "mi-sm")} Remove</button>
           </div>
@@ -2218,6 +2305,18 @@ function filteredSubmissions() {
       .join(" ").toLowerCase();
     return blob.includes(q);
   });
+
+  // Newest first: by submission date desc, then original array order (later = newer)
+  const indexed = rows.map((r, idx) => ({ r, idx }));
+  indexed.sort((a, b) => {
+    const da = parseSubDate(a.r.submissionDate);
+    const db = parseSubDate(b.r.submissionDate);
+    if (da && db && da.getTime() !== db.getTime()) return db - da;
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    return b.idx - a.idx; // later in array = more recently added
+  });
+  return indexed.map(x => x.r);
 }
 
 function renderSubmissions() {
@@ -2508,18 +2607,63 @@ function editScheduled(index) {
 }
 
 /* ---------- Events ---------- */
+function closeMobileMenu() {
+  const sb = document.getElementById("sidebar");
+  const bd = document.getElementById("sidebarBackdrop");
+  if (sb) sb.classList.remove("open");
+  if (bd) bd.classList.remove("open");
+}
+function openMobileMenu() {
+  const sb = document.getElementById("sidebar");
+  const bd = document.getElementById("sidebarBackdrop");
+  if (sb) sb.classList.add("open");
+  if (bd) bd.classList.add("open");
+}
+const menuToggle = document.getElementById("menuToggle");
+if (menuToggle) menuToggle.onclick = openMobileMenu;
+const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+if (sidebarBackdrop) sidebarBackdrop.onclick = closeMobileMenu;
+
 document.querySelectorAll(".nav-btn").forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+    closeMobileMenu();
   };
 });
 
+function copyAvailabilityRow(index) {
+  const c = state.availability[index];
+  if (!c) return;
+  const slots = (c.slots || []).map(s => String(s || "").trim()).filter(Boolean);
+  const headers = ["Candidate"].concat(slots.map((_, i) => "Slot " + (i + 1)));
+  const values = [c.name || ""].concat(slots);
+  // TSV pastes cleanly into Sheets / Excel as columns
+  const tsv = headers.join("\t") + "\n" + values.join("\t");
+  const write = () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(tsv);
+    }
+    const ta = document.createElement("textarea");
+    ta.value = tsv;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    return Promise.resolve();
+  };
+  write().then(() => {
+    toast("Copied " + (c.name || "candidate") + " · " + slots.length + " slot(s)", "content_copy");
+  }).catch(() => toast("Copy failed", "error"));
+}
+
 document.getElementById("availabilityMount").addEventListener("click", e => {
+  const cp = e.target.closest("[data-copy-av]");
   const ed = e.target.closest("[data-edit-av]");
   const del = e.target.closest("[data-del-av]");
+  if (cp) copyAvailabilityRow(+cp.dataset.copyAv);
   if (ed) editAvailability(+ed.dataset.editAv);
   if (del) {
     if (!isAdmin()) return;
