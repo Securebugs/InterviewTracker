@@ -3468,17 +3468,11 @@ async function completeLogin() {
     fillConfigTextareas();
   }
 
-  const adminNames = (users || []).filter(u => isAdminRole(u.role)).map(u => u.name);
-  console.log("Login", { name, role, users, adminNames });
+  console.log("Login", { name, role });
   if (isAdmin()) {
     toast("Admin: " + name, "verified_user");
   } else {
-    toast(
-      "User: " + name + (adminNames.length
-        ? " · Sheet admins: " + adminNames.join(", ") + " (type the name exactly)"
-        : " · Management has no Admin rows or script not updated"),
-      "person"
-    );
+    toast("User: " + name, "person");
   }
 }
 
