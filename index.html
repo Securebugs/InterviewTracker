@@ -1279,6 +1279,162 @@ function persist() {
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
 }
 
+/* ---------- Multi-device sync metadata / record identity ----------
+ * These helpers must be declared before the first normalizeStateRecords()
+ * call because the app initializes local data immediately on page load.
+ */
+const SYNC_META_KEY = "emb_sync_meta_v2";
+const SYNC_QUEUE_KEY = "emb_sync_queue_v2";
+const DEVICE_ID_KEY = "emb_device_id_v2";
+
+function makeId(prefix) {
+  const p = String(prefix || "rec");
+  try {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return p + "-" + window.crypto.randomUUID();
+    }
+  } catch (_) {}
+  return p + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
+}
+
+function getDeviceId() {
+  let id = "";
+  try { id = localStorage.getItem(DEVICE_ID_KEY) || ""; } catch (_) {}
+  if (!id) {
+    id = makeId("device");
+    try { localStorage.setItem(DEVICE_ID_KEY, id); } catch (_) {}
+  }
+  return id;
+}
+
+function getSyncMeta() {
+  try {
+    const raw = localStorage.getItem(SYNC_META_KEY);
+    const meta = raw ? JSON.parse(raw) : {};
+    return {
+      revision: Number.isFinite(Number(meta.revision)) ? Number(meta.revision) : 0
+    };
+  } catch (_) {
+    return { revision: 0 };
+  }
+}
+
+function setSyncMeta(patch) {
+  const current = getSyncMeta();
+  const next = { ...current, ...(patch || {}) };
+  next.revision = Number.isFinite(Number(next.revision)) ? Number(next.revision) : 0;
+  try { localStorage.setItem(SYNC_META_KEY, JSON.stringify(next)); } catch (_) {}
+  return next;
+}
+
+function getMutationQueue() {
+  try {
+    const raw = localStorage.getItem(SYNC_QUEUE_KEY);
+    const q = raw ? JSON.parse(raw) : [];
+    return Array.isArray(q) ? q : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function setMutationQueue(queue) {
+  const safe = Array.isArray(queue) ? queue : [];
+  try { localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(safe)); } catch (_) {}
+  return safe;
+}
+
+function ensureRecordIdentity(row, type) {
+  const r = row && typeof row === "object" ? row : {};
+  const prefix = type === "availability" || type === "av" ? "av"
+    : type === "scheduled" || type === "sc" ? "sc" : "sub";
+
+  if (!r.id || !String(r.id).trim()) r.id = makeId(prefix);
+  else r.id = String(r.id);
+
+  const v = Number(r.version);
+  r.version = Number.isFinite(v) && v > 0 ? v : 1;
+  if (!r.updatedAt) r.updatedAt = new Date().toISOString();
+  if (!r.updatedBy) r.updatedBy = currentUser && currentUser.name ? String(currentUser.name) : getDeviceId();
+  r.deleted = r.deleted === true;
+  return r;
+}
+
+function normalizeStateRecords() {
+  state.availability = (Array.isArray(state.availability) ? state.availability : [])
+    .map(r => ensureRecordIdentity(r, "av"));
+  state.scheduled = (Array.isArray(state.scheduled) ? state.scheduled : [])
+    .map(r => ensureRecordIdentity(r, "sc"));
+  state.submissions = (Array.isArray(state.submissions) ? state.submissions : [])
+    .map((r, i) => {
+      const row = ensureRecordIdentity(r, "sub");
+      // Preserve sheet ordering without making it part of JSON equality.
+      try {
+        Object.defineProperty(row, "__sheetOrder", {
+          value: Number.isFinite(Number(r && r.__sheetOrder)) ? Number(r.__sheetOrder) : i,
+          writable: true,
+          configurable: true,
+          enumerable: false
+        });
+      } catch (_) {}
+      return row;
+    });
+}
+
+function queueMutation(type, operation, record) {
+  const validTypes = ["availability", "scheduled", "submissions"];
+  if (!validTypes.includes(type)) return null;
+
+  const prefix = type === "availability" ? "av" : type === "scheduled" ? "sc" : "sub";
+  const r = ensureRecordIdentity({ ...(record || {}) }, prefix);
+  const now = new Date().toISOString();
+  const op = operation === "delete" ? "delete" : "upsert";
+
+  // Keep BOTH the dashboard names and the server API names.  The previous
+  // build queued {type, operation, id}, while Apps Script reads
+  // {entity, op, recordId}; that caused every mutation to be rejected.
+  const mutation = {
+    mutationId: makeId("mut"),
+    entity: type,
+    op: op,
+    recordId: r.id,
+    type: type,
+    operation: op,
+    id: r.id,
+    record: r,
+    clientVersion: Number(r.version || 1),
+    timestamp: now,
+    deviceId: getDeviceId(),
+    user: currentUser && currentUser.name ? String(currentUser.name) : getDeviceId()
+  };
+
+  const queue = getMutationQueue();
+  queue.push(mutation);
+  setMutationQueue(queue);
+  dirty = true;
+  return mutation;
+}
+
+// Stable logical keys used only for legacy JSON import compatibility.
+// Normal server synchronization uses permanent record IDs.
+function keyAvailability(r, i) {
+  if (r && r.id) return "id:" + String(r.id);
+  const k = (String(r && r.role || "").trim() + "||" + String(r && r.name || "").trim()).toLowerCase();
+  return k === "||" ? "av-" + i + "-" + JSON.stringify(r || {}).slice(0, 80) : k;
+}
+function keyScheduled(r, i) {
+  if (r && r.id) return "id:" + String(r.id);
+  const k = (String(r && r.candidate || "").trim() + "||" + String(r && r.when || "").trim()).toLowerCase();
+  return k === "||" ? "sc-" + i + "-" + JSON.stringify(r || {}).slice(0, 80) : k;
+}
+function keySubmission(r, i) {
+  if (r && r.id) return "id:" + String(r.id);
+  const k = (String(r && r.jpc || "").trim() + "||" + String(r && r.candidateName || "").trim()).toLowerCase();
+  return k === "||" ? "sub-" + i + "-" + JSON.stringify(r || {}).slice(0, 120) : k;
+}
+
+// Ensure legacy/local records have permanent IDs before any sync operation.
+try { normalizeStateRecords(); } catch (e) { console.warn("Initial record normalization failed", e); }
+
 function esc(s) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
@@ -1773,10 +1929,11 @@ let pushing = false;
 let pushQueued = false;
 let autoPullTimer = null;
 let syncTimer = null;
-let sheetEndpointDead = false; // stops noisy polling when the deployed Web App returns 404
+let sheetEndpointDead = false;
 
 function refresh(opts) {
   opts = opts || {};
+  normalizeStateRecords();
   renderAvailability();
   renderScheduled();
   renderSubmissions();
@@ -1785,18 +1942,20 @@ function refresh(opts) {
   renderStats();
   persist();
   scheduleReminders();
+
   if (opts.push) {
     dirty = true;
     queueSync();
   }
 }
 
-/* ---------- Sheet sync ---------- */
+/* ---------- Sheet sync: mutation based, multi-device safe ---------- */
 function sheetUrl() {
   const local = (localStorage.getItem("emb_sheet_url") || "").trim();
   if (local) return local;
   return (DEFAULT_SHEET_URL || "").trim();
 }
+
 function setSyncUI(ok, msg) {
   const dot = document.getElementById("syncDot");
   const lab = document.getElementById("syncLabel");
@@ -1804,28 +1963,7 @@ function setSyncUI(ok, msg) {
   if (lab) lab.textContent = msg || (ok ? "Synced" : "Not connected");
 }
 
-function mergeByKey(localArr, remoteArr, keyFn) {
-  const map = new Map();
-  (remoteArr || []).forEach((r, i) => map.set(keyFn(r, i), r));
-  (localArr || []).forEach((r, i) => map.set(keyFn(r, i), r)); // local wins
-  return Array.from(map.values());
-}
-function keyAvailability(r, i) {
-  const k = (String(r.role || "").trim() + "||" + String(r.name || "").trim()).toLowerCase();
-  return k === "||" ? "av-" + i + "-" + JSON.stringify(r).slice(0, 80) : k;
-}
-function keyScheduled(r, i) {
-  const k = (String(r.candidate || "").trim() + "||" + String(r.when || "").trim()).toLowerCase();
-  return k === "||" ? "sc-" + i + "-" + JSON.stringify(r).slice(0, 80) : k;
-}
-function keySubmission(r, i) {
-  const k = (String(r.jpc || "").trim() + "||" + String(r.candidateName || "").trim()).toLowerCase();
-  return k === "||" ? "sub-" + i + "-" + JSON.stringify(r).slice(0, 120) : k;
-}
-
 function fetchWithTimeout(resource, options, ms) {
-  // Keep the timeout, but preserve the original AbortError so callers can
-  // distinguish a real network timeout from an HTTP error returned by Apps Script.
   const ctrl = new AbortController();
   const timeoutMs = ms || 20000;
   const id = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -1841,62 +1979,151 @@ function sheetRequestUrl(extraParams) {
   return url + (url.includes("?") ? "&" : "?") + params.toString();
 }
 
-async function fetchSheetJson() {
+function fetchSheetJsonViaJsonp(extraParams) {
+  const url = sheetUrl();
+  if (!url) return Promise.resolve(null);
+
+  return new Promise((resolve, reject) => {
+    const callback = "__sparixSyncJsonp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    const script = document.createElement("script");
+    const params = new URLSearchParams(extraParams || {});
+    params.set("callback", callback);
+    params.set("_", String(Date.now()));
+
+    let finished = false;
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Sheet JSONP request timed out. Check the Apps Script Web App deployment/access."));
+    }, 15000);
+
+    function cleanup() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[callback] = function(data) {
+      cleanup();
+      if (data && data.ok === false) reject(new Error(data.error || "Sheet error"));
+      else resolve(data);
+    };
+
+    script.onerror = function() {
+      cleanup();
+      reject(new Error("Could not reach the Apps Script Web App."));
+    };
+    script.src = url + (url.includes("?") ? "&" : "?") + params.toString();
+    document.head.appendChild(script);
+  });
+}
+
+async function fetchSheetJson(extraParams) {
   const url = sheetUrl();
   if (!url) return null;
   if (sheetEndpointDead) return null;
 
-  let res;
+  // Apps Script Web Apps commonly redirect ContentService responses.
+  // Use JSONP first so the browser can read the response without CORS.
   try {
-    res = await fetchWithTimeout(sheetRequestUrl(), {
+    const jsonp = await fetchSheetJsonViaJsonp(extraParams);
+    sheetEndpointDead = false;
+    return jsonp;
+  } catch (jsonpFirstErr) {
+    console.warn("Sheet JSONP GET failed; trying fetch fallback:", jsonpFirstErr && jsonpFirstErr.message ? jsonpFirstErr.message : jsonpFirstErr);
+  }
+
+  try {
+    const res = await fetchWithTimeout(sheetRequestUrl(extraParams), {
       method: "GET",
       redirect: "follow",
       cache: "no-store",
       credentials: "omit"
-    }, 20000);
-  } catch (e) {
-    if (e && e.name === "AbortError") {
-      throw new Error("Sheet request timed out. Check the Apps Script Web App deployment.");
+    }, 12000);
+
+    if (res.status === 404) {
+      sheetEndpointDead = true;
+      throw new Error("HTTP 404 — Google Apps Script Web App URL is unavailable or its deployment was removed.");
     }
-    throw e;
-  }
+    if (!res.ok) throw new Error("HTTP " + res.status);
 
-  if (res.status === 404) {
-    sheetEndpointDead = true;
-    throw new Error("HTTP 404 — Google Apps Script Web App URL is unavailable or its deployment was removed. Redeploy the Web App and paste the new /exec URL in Sheet & setup.");
+    let json;
+    try { json = await res.json(); }
+    catch (_) { throw new Error("Sheet returned a non-JSON response."); }
+    if (json && json.ok === false) throw new Error(json.error || "Sheet error");
+    sheetEndpointDead = false;
+    return json;
+  } catch (e) {
+    // Apps Script ContentService can be blocked by browser CORS/redirect rules,
+    // especially from file://. JSONP uses a script request and avoids that issue.
+    console.warn("Sheet GET fetch failed; trying JSONP fallback:", e && e.message ? e.message : e);
+    try {
+      const json = await fetchSheetJsonViaJsonp(extraParams);
+      sheetEndpointDead = false;
+      return json;
+    } catch (jsonpErr) {
+      if (e && e.name === "AbortError") {
+        throw new Error("Sheet request timed out. JSONP fallback also failed. Check the Apps Script Web App deployment/access.");
+      }
+      throw jsonpErr;
+    }
   }
-  if (!res.ok) throw new Error("HTTP " + res.status);
-
-  let json;
-  try {
-    json = await res.json();
-  } catch (_) {
-    throw new Error("Sheet returned a non-JSON response. Check that the Apps Script Web App is deployed as /exec.");
-  }
-  if (json && json.ok === false) throw new Error(json.error || "Sheet error");
-  sheetEndpointDead = false;
-  return json;
 }
 
-function applyRemoteJson(json, mergeLocal) {
+async function postStateToSheet(payload) {
+  const url = sheetUrl();
+  if (!url) throw new Error("No Sheet URL configured.");
+
+  let posted = false;
+  try {
+    await fetchWithTimeout(url, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: payload,
+      redirect: "follow"
+    }, 12000);
+    posted = true;
+  } catch (e) {
+    // no-cors POST has no readable response. If the browser times out, use
+    // sendBeacon as the transport fallback; the following JSONP GET verifies
+    // the canonical state before the queue is cleared.
+    console.warn("Sheet POST transport failed; trying sendBeacon:", e && e.message ? e.message : e);
+  }
+
+  if (!posted && navigator.sendBeacon) {
+    try {
+      posted = navigator.sendBeacon(
+        url,
+        new Blob([payload], { type: "text/plain;charset=utf-8" })
+      );
+    } catch (_) {}
+  }
+
+  if (!posted) throw new Error("Could not send changes to the Apps Script Web App.");
+}
+
+function removeDeletedRecords() {
+  state.availability = (state.availability || []).filter(r => !r.deleted);
+  state.scheduled = (state.scheduled || []).filter(r => !r.deleted);
+  state.submissions = (state.submissions || []).filter(r => !r.deleted);
+}
+
+function applyCanonicalRecords(json) {
   if (!json) return;
-  if (mergeLocal) {
-    if (Array.isArray(json.availability))
-      state.availability = mergeByKey(state.availability, json.availability, keyAvailability);
-    if (Array.isArray(json.scheduled))
-      state.scheduled = mergeByKey(state.scheduled, json.scheduled, keyScheduled);
-    if (Array.isArray(json.submissions))
-      state.submissions = mergeByKey(state.submissions, json.submissions, keySubmission);
-  } else {
-    if (Array.isArray(json.availability)) state.availability = json.availability;
-    if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
-    if (Array.isArray(json.submissions)) {
-      state.submissions = json.submissions.map((r, i) => {
-        const row = { ...r };
-        Object.defineProperty(row, "__sheetOrder", { value: i, writable: true, configurable: true, enumerable: false });
-        return row;
-      });
-    }
+  if (Array.isArray(json.availability)) {
+    state.availability = json.availability.filter(r => !r.deleted).map(r => ensureRecordIdentity(r, "av"));
+  }
+  if (Array.isArray(json.scheduled)) {
+    state.scheduled = json.scheduled.filter(r => !r.deleted).map(r => ensureRecordIdentity(r, "sc"));
+  }
+  if (Array.isArray(json.submissions)) {
+    state.submissions = json.submissions.filter(r => !r.deleted).map((r, i) => {
+      const row = ensureRecordIdentity({ ...r }, "sub");
+      Object.defineProperty(row, "__sheetOrder", { value: i, writable: true, configurable: true, enumerable: false });
+      return row;
+    });
   }
   if (json.config) {
     config = {
@@ -1916,30 +2143,106 @@ function applyRemoteJson(json, mergeLocal) {
     persistUser();
     updateUserBadge();
   }
+  normalizeStateRecords();
 }
 
-function queueSync() {
-  if (!sheetUrl()) return;
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => pushToSheet(true), 400);
-}
+function applyIncrementalChanges(json) {
+  if (!json || !Array.isArray(json.changes)) return false;
 
-async function postStateToSheet(payload) {
-  const url = sheetUrl();
-  // Primary POST
-  await fetchWithTimeout(url, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: payload,
-    redirect: "follow"
-  }, 25000);
-  // Backup beacon
-  try {
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([payload], { type: "text/plain;charset=utf-8" }));
+  const arrays = {
+    availability: state.availability || [],
+    scheduled: state.scheduled || [],
+    submissions: state.submissions || []
+  };
+
+  const types = ["availability", "scheduled", "submissions"];
+
+  (json.changes || []).forEach(change => {
+    const type = change.type === "submissions" ? "submissions" : change.type;
+    if (!types.includes(type)) return;
+
+    const arr = arrays[type];
+    const rec = change.record ? { ...change.record } : null;
+    const id = change.id || (rec && rec.id);
+    if (!id) return;
+
+    const idx = arr.findIndex(r => String(r.id) === String(id));
+
+    if (change.operation === "delete" || (rec && rec.deleted === true)) {
+      if (idx !== -1) arr.splice(idx, 1);
+      return;
     }
-  } catch (_) {}
+
+    if (!rec) return;
+    ensureRecordIdentity(rec, type === "availability" ? "av" : type === "scheduled" ? "sc" : "sub");
+
+    if (idx === -1) arr.push(rec);
+    else {
+      const localVersion = Number(arr[idx].version || 0);
+      const remoteVersion = Number(rec.version || 0);
+      if (remoteVersion >= localVersion) arr[idx] = rec;
+    }
+  });
+
+  state.availability = arrays.availability;
+  state.scheduled = arrays.scheduled;
+  state.submissions = arrays.submissions;
+  if (json.config || json.users) {
+    applyCanonicalRecords({ config: json.config, users: json.users });
+  }
+  if (Number.isFinite(Number(json.revision))) {
+    setSyncMeta({ revision: Number(json.revision) });
+  }
+  normalizeStateRecords();
+  return true;
+}
+
+async function pullFromSheet(silent) {
+  const url = sheetUrl();
+  if (!url) {
+    if (!silent) toast("Add Web App URL first", "link_off");
+    return false;
+  }
+  if (pushing || pulling) return false;
+
+  pulling = true;
+  setSyncUI(null, silent ? "Live…" : "Pulling…");
+
+  try {
+    const meta = getSyncMeta();
+    const json = await fetchSheetJson({ since: String(meta.revision || 0), deviceId: getDeviceId() });
+
+    if (json && Array.isArray(json.changes)) {
+      applyIncrementalChanges(json);
+    } else {
+      applyCanonicalRecords(json);
+      if (json && Number.isFinite(Number(json.revision))) {
+        setSyncMeta({ revision: Number(json.revision) });
+      }
+    }
+
+    persist();
+    renderAvailability();
+    renderScheduled();
+    renderSubmissions();
+    renderUpcomingInto("overviewUpcoming");
+    renderUpcomingInto("alertsList");
+    renderStats();
+    scheduleReminders();
+
+    dirty = getMutationQueue().length > 0;
+    const c = (state.submissions || []).length;
+    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + c + " submissions · " + new Date().toLocaleTimeString());
+    if (!silent) toast("Loaded · " + c + " submissions", "cloud_download");
+    return true;
+  } catch (e) {
+    console.warn("Sheet pull stopped:", e.message || e);
+    setSyncUI(false, sheetEndpointDead ? "Sheet URL unavailable" : "Pull failed");
+    if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
+    return false;
+  } finally {
+    pulling = false;
+  }
 }
 
 async function pushToSheet(silent) {
@@ -1954,133 +2257,104 @@ async function pushToSheet(silent) {
     return false;
   }
 
-  // Wait for in-flight pull (max ~5s)
-  for (let i = 0; i < 50 && pulling; i++) {
-    await new Promise(r => setTimeout(r, 100));
+  const queue = getMutationQueue();
+  if (!queue.length) {
+    dirty = false;
+    return true;
   }
 
   pushing = true;
   setSyncUI(null, "Saving…");
+
   try {
-    // Freeze local data so a concurrent pull cannot wipe the new row
-    const localSnap = {
-      availability: JSON.parse(JSON.stringify(state.availability || [])),
-      scheduled: JSON.parse(JSON.stringify(state.scheduled || [])),
-      submissions: JSON.parse(JSON.stringify(state.submissions || []))
-    };
-
-    try {
-      const remote = await fetchSheetJson();
-      if (remote) {
-        state.availability = mergeByKey(localSnap.availability, remote.availability || [], keyAvailability);
-        state.scheduled = mergeByKey(localSnap.scheduled, remote.scheduled || [], keyScheduled);
-        state.submissions = mergeByKey(localSnap.submissions, remote.submissions || [], keySubmission);
-        if (remote.config || remote.users) {
-          applyRemoteJson({ config: remote.config, users: remote.users }, false);
-        }
-      }
-    } catch (e) {
-      console.warn("pre-push pull failed — pushing local snapshot", e);
-      state.availability = localSnap.availability;
-      state.scheduled = localSnap.scheduled;
-      state.submissions = localSnap.submissions;
-    }
-
     const payload = JSON.stringify({
-      action: "upsert",
-      availability: state.availability || [],
-      scheduled: state.scheduled || [],
-      submissions: (state.submissions || []).map(r => {
-        const copy = { ...r };
-        delete copy.__sheetOrder;
-        return copy;
-      }),
-      updatedAt: new Date().toISOString()
+      action: "mutations",
+      deviceId: getDeviceId(),
+      baseRevision: Number(getSyncMeta().revision || 0),
+      mutations: queue.map(m => ({
+        ...m,
+        entity: m.entity || m.type,
+        op: m.op || m.operation,
+        recordId: m.recordId || m.id || (m.record && m.record.id),
+        type: m.type || m.entity,
+        operation: m.operation || m.op,
+        id: m.id || m.recordId || (m.record && m.record.id),
+        clientVersion: Number(
+          m.clientVersion != null ? m.clientVersion :
+          (m.previous && m.previous.version != null ? m.previous.version :
+          (m.record && m.record.version != null ? m.record.version : 0))
+        )
+      })),
+      user: currentUser ? { name: currentUser.name, role: currentUser.role } : { name: getDeviceId(), role: "User" }
     });
 
+    const beforeIds = new Set(queue.map(m => m.mutationId));
     await postStateToSheet(payload);
 
-    // Verify write landed; retry once if sheet still behind
-    await new Promise(r => setTimeout(r, 1500));
-    try {
-      const check = await fetchSheetJson();
-      if (check) {
-        const remoteN = (check.submissions || []).length;
-        const localN = (state.submissions || []).length;
-        if (localN > remoteN) {
-          console.warn("Sheet behind local, retry push", remoteN, localN);
-          await postStateToSheet(payload);
-          await new Promise(r => setTimeout(r, 1500));
-        }
-        applyRemoteJson(check, true);
-      }
-    } catch (e) {
-      console.warn("verify", e);
+    // POST is no-cors, so its response is intentionally unreadable. Verify
+    // the write with a direct GET instead of calling pullFromSheet(), because
+    // pullFromSheet() correctly refuses to run while a push is in progress.
+    await new Promise(r => setTimeout(r, 350));
+    const meta = getSyncMeta();
+    const resultJson = await fetchSheetJson({
+      since: String(meta.revision || 0),
+      deviceId: getDeviceId()
+    });
+    if (!resultJson) throw new Error("Server acknowledgement could not be confirmed.");
+    if (Array.isArray(resultJson.changes)) applyIncrementalChanges(resultJson);
+    else applyCanonicalRecords(resultJson);
+    if (Number.isFinite(Number(resultJson.revision))) {
+      setSyncMeta({ revision: Number(resultJson.revision) });
     }
 
-    dirty = false;
+    // Remove only mutations that were present in the submitted batch.
+    // New mutations created while the request was in-flight are retained.
+    const remaining = getMutationQueue().filter(m => !beforeIds.has(m.mutationId));
+    setMutationQueue(remaining);
+
+    dirty = remaining.length > 0;
     persist();
+
     renderAvailability();
     renderScheduled();
     renderSubmissions();
     renderStats();
+
     setSyncUI(true, "Saved · " + (state.submissions || []).length + " rows · " + new Date().toLocaleTimeString());
     if (!silent) toast("Saved to Google Sheet", "cloud_done");
     return true;
   } catch (e) {
-    console.error(e);
-    setSyncUI(false, "Push failed");
-    if (!silent) toast("Push failed — check URL", "error");
+    console.error("mutation push", e);
+    setSyncUI(false, "Push failed — retrying");
+    dirty = getMutationQueue().length > 0;
+    if (!silent) toast("Push failed — changes kept locally and will retry", "error");
     return false;
   } finally {
     pushing = false;
     if (pushQueued) {
       pushQueued = false;
-      setTimeout(() => pushToSheet(true), 400);
+      setTimeout(() => pushToSheet(true), 100);
     }
   }
 }
 
-async function pullFromSheet(silent) {
-  const url = sheetUrl();
-  if (!url) {
-    if (!silent) toast("Add Web App URL first", "link_off");
-    return;
-  }
-  if (pushing || pulling) return;
-  pulling = true;
-  setSyncUI(null, silent ? "Live…" : "Pulling…");
-  try {
-    const json = await fetchSheetJson();
-    applyRemoteJson(json, !!dirty);
-    persist();
-    renderAvailability();
-    renderScheduled();
-    renderSubmissions();
-    renderUpcomingInto("overviewUpcoming");
-    renderUpcomingInto("alertsList");
-    renderStats();
-    scheduleReminders();
-    const c = (state.submissions || []).length;
-    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + c + " submissions · " + new Date().toLocaleTimeString());
-    if (!silent) toast("Loaded · " + c + " submissions", "cloud_download");
-  } catch (e) {
-    console.warn("Sheet pull stopped:", e.message || e);
-    setSyncUI(false, sheetEndpointDead ? "Sheet URL unavailable" : "Pull failed");
-    if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
-  } finally {
-    pulling = false;
-  }
+function queueSync() {
+  if (!sheetUrl()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => pushToSheet(true), 50);
 }
 
 function startAutoPull() {
   if (autoPullTimer) clearInterval(autoPullTimer);
-  autoPullTimer = setInterval(() => {
+  autoPullTimer = setInterval(async () => {
     if (!sheetUrl() || sheetEndpointDead || document.hidden || pushing || pulling) return;
-    // If local edits pending, push (merge+save). Else pull for live updates.
-    if (dirty) pushToSheet(true);
-    else pullFromSheet(true);
-  }, 5000);
+
+    if (getMutationQueue().length) {
+      await pushToSheet(true);
+    } else {
+      await pullFromSheet(true);
+    }
+  }, 2000);
 }
 
 
@@ -2491,6 +2765,7 @@ function editSubmission(index) {
   document.getElementById("m_cancel").onclick = closeModal;
   document.getElementById("m_save").onclick = () => {
     const next = {
+      ...(isNew ? {} : row),
       jpc: document.getElementById("m_jpc").value.trim(),
       role: document.getElementById("m_role").value.trim(),
       candidateName: document.getElementById("m_cand").value.trim() || "Candidate",
@@ -2502,10 +2777,17 @@ function editSubmission(index) {
       update2: document.getElementById("m_u2").value.trim(),
       update3: document.getElementById("m_u3").value.trim()
     };
-    if (isNew) state.submissions.push(next);
-    else state.submissions[index] = next;
+    ensureRecordIdentity(next, "sub");
+    if (isNew) {
+      state.submissions.push(next);
+      queueMutation("submissions", "upsert", next);
+    } else {
+      state.submissions[index] = next;
+      queueMutation("submissions", "upsert", next);
+    }
     closeModal();
-    refresh({ push: true });
+    refresh({ push: false });
+    pushToSheet(false);
   };
 }
 
@@ -2599,14 +2881,22 @@ function editAvailability(index) {
     }).filter(Boolean);
 
     const next = {
+      ...(isNew ? {} : row),
       role: document.getElementById("m_role").value.trim() || "General",
       name: document.getElementById("m_name").value.trim() || "Unnamed",
       slots: slots.length ? slots : []
     };
-    if (isNew) state.availability.push(next);
-    else state.availability[index] = next;
+    ensureRecordIdentity(next, "av");
+    if (isNew) {
+      state.availability.push(next);
+      queueMutation("availability", "upsert", next);
+    } else {
+      state.availability[index] = next;
+      queueMutation("availability", "upsert", next);
+    }
     closeModal();
-    refresh({ push: true });
+    refresh({ push: false });
+    pushToSheet(false);
   };
 }
 
@@ -2647,15 +2937,23 @@ function editScheduled(index) {
   document.getElementById("m_save").onclick = () => {
     const d = fromInputs(document.getElementById("m_date").value, document.getElementById("m_time").value);
     const next = {
+      ...(isNew ? {} : row),
       candidate: document.getElementById("m_c").value.trim() || "Candidate",
       recruiter: document.getElementById("m_r").value.trim(),
       when: d ? formatInterviewWhen(d) : "",
       status: document.getElementById("m_s").value
     };
-    if (isNew) state.scheduled.push(next);
-    else state.scheduled[index] = next;
+    ensureRecordIdentity(next, "sc");
+    if (isNew) {
+      state.scheduled.push(next);
+      queueMutation("scheduled", "upsert", next);
+    } else {
+      state.scheduled[index] = next;
+      queueMutation("scheduled", "upsert", next);
+    }
     closeModal();
-    refresh({ push: true });
+    refresh({ push: false });
+    pushToSheet(false);
   };
 }
 
@@ -2768,8 +3066,15 @@ document.getElementById("availabilityMount").addEventListener("click", e => {
   if (del) {
     if (!isAdmin()) return;
     if (confirm("Remove this candidate?")) {
-      state.availability.splice(+del.dataset.delAv, 1);
-      refresh({ push: true });
+      const idx = +del.dataset.delAv;
+      const row = state.availability[idx];
+      if (row) {
+        ensureRecordIdentity(row, "av");
+        queueMutation("availability", "delete", { ...row, deleted: true, deletedAt: new Date().toISOString() });
+        state.availability.splice(idx, 1);
+      }
+      refresh({ push: false });
+      pushToSheet(false);
     }
   }
 });
@@ -2780,8 +3085,15 @@ document.getElementById("schedList").addEventListener("click", e => {
   if (ed) editScheduled(+ed.dataset.editSc);
   if (del) {
     if (!isAdmin()) return;
-    state.scheduled.splice(+del.dataset.delSc, 1);
-    refresh({ push: true });
+    const idx = +del.dataset.delSc;
+    const row = state.scheduled[idx];
+    if (row) {
+      ensureRecordIdentity(row, "sc");
+      queueMutation("scheduled", "delete", { ...row, deleted: true, deletedAt: new Date().toISOString() });
+      state.scheduled.splice(idx, 1);
+    }
+    refresh({ push: false });
+    pushToSheet(false);
   }
 });
 
@@ -2799,8 +3111,15 @@ document.getElementById("subTableWrap").addEventListener("click", e => {
   if (del) {
     if (!isAdmin()) return;
     if (confirm("Delete this submission row?")) {
-      state.submissions.splice(+del.dataset.delSub, 1);
-      refresh({ push: true });
+      const idx = +del.dataset.delSub;
+      const row = state.submissions[idx];
+      if (row) {
+        ensureRecordIdentity(row, "sub");
+        queueMutation("submissions", "delete", { ...row, deleted: true, deletedAt: new Date().toISOString() });
+        state.submissions.splice(idx, 1);
+      }
+      refresh({ push: false });
+      pushToSheet(false);
     }
   }
 });
@@ -3140,7 +3459,19 @@ async function importAdminJson(file) {
     renderStats();
     scheduleReminders();
 
-    // Push the merged complete snapshot. Existing Sheet data is retained.
+    // Push imported changes as individual mutations; never overwrite the entire Sheet snapshot.
+    avResult.data.forEach(r => {
+      ensureRecordIdentity(r, "av");
+      queueMutation("availability", "upsert", r);
+    });
+    scResult.data.forEach(r => {
+      ensureRecordIdentity(r, "sc");
+      queueMutation("scheduled", "upsert", r);
+    });
+    subResult.data.forEach(r => {
+      ensureRecordIdentity(r, "sub");
+      queueMutation("submissions", "upsert", r);
+    });
     dirty = true;
     const pushed = await pushToSheet(false);
     if (!pushed) throw new Error("Data merged locally, but the Google Sheet push failed.");
@@ -3468,11 +3799,17 @@ async function completeLogin() {
     fillConfigTextareas();
   }
 
-  console.log("Login", { name, role });
+  const adminNames = (users || []).filter(u => isAdminRole(u.role)).map(u => u.name);
+  console.log("Login", { name, role, users, adminNames });
   if (isAdmin()) {
     toast("Admin: " + name, "verified_user");
   } else {
-    toast("User: " + name, "person");
+    toast(
+      "User: " + name + (adminNames.length
+        ? " · Sheet admins: " + adminNames.join(", ") + " (type the name exactly)"
+        : " · Management has no Admin rows or script not updated"),
+      "person"
+    );
   }
 }
 
