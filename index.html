@@ -810,11 +810,11 @@
     <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
       <span class="material-symbols-outlined">menu</span>
     </button>
-    <div class="mb-title">Sparix Global<span>Talent Interview Dashboard</span></div>
+   <a href="https://securebugs.github.io/InterviewTracker/" style="text-decoration: none; color: inherit;"><div class="mb-title">Sparix Global<span>Interview Dashboard</span></div></a>
   </div>
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
-    <div class="brand">Sparix Global<span>Talent Interview Dashboard</span></div>
+   <a href="https://securebugs.github.io/InterviewTracker/" style="text-decoration: none; color: inherit;"><div class="brand">Sparix Global<span>Interview Dashboard</span></div></a>
     <button type="button" class="nav-btn active" data-panel="overview">
       <span class="material-symbols-outlined">dashboard</span> Overview
     </button>
@@ -1006,6 +1006,16 @@
           <button type="button" class="btn" id="pushBtn">
             <span class="material-symbols-outlined">cloud_upload</span> Push
           </button>
+          <button type="button" class="btn btn-dark admin-only" id="downloadExcelBtn">
+            <span class="material-symbols-outlined">download</span> Download Excel
+          </button>
+          <button type="button" class="btn admin-only" id="downloadJsonBtn">
+            <span class="material-symbols-outlined">data_object</span> Download JSON
+          </button>
+          <button type="button" class="btn admin-only" id="uploadJsonBtn">
+            <span class="material-symbols-outlined">upload_file</span> Upload JSON
+          </button>
+          <input type="file" id="uploadJsonInput" accept="application/json,.json" style="display:none">
         </div>
         <div class="field" style="margin-top:18px">
           <label>Signed-in name</label>
@@ -2931,7 +2941,434 @@ if (cfgAddBtn) cfgAddBtn.onclick = async () => {
   }
 };
 
+/* ---------- Admin JSON backup / restore ---------- */
+function jsonSafeClone(value) {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function stableJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return "[" + value.map(stableJson).join(",") + "]";
+  return "{" + Object.keys(value).sort().map(k => JSON.stringify(k) + ":" + stableJson(value[k])).join(",") + "}";
+}
+
+function recordsEqual(a, b) {
+  return stableJson(a) === stableJson(b);
+}
+
+function cloneWithoutSheetOrder(row) {
+  const copy = jsonSafeClone(row || {});
+  if (copy && typeof copy === "object") delete copy.__sheetOrder;
+  return copy;
+}
+
+function mergeImportedRecords(existing, incoming, keyFn) {
+  const current = Array.isArray(existing) ? existing.map(cloneWithoutSheetOrder) : [];
+  const imported = Array.isArray(incoming) ? incoming.map(cloneWithoutSheetOrder) : [];
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  // Exact duplicates are skipped. If the same logical key exists but the
+  // contents differ, replace that record with the imported version.
+  imported.forEach((item, importIndex) => {
+    const exactIndex = current.findIndex(existingItem => recordsEqual(existingItem, item));
+    if (exactIndex !== -1) {
+      skipped++;
+      return;
+    }
+
+    const importedKey = keyFn(item, importIndex);
+    const keyIndex = current.findIndex((existingItem, existingIndex) =>
+      keyFn(existingItem, existingIndex) === importedKey
+    );
+
+    if (keyIndex !== -1) {
+      current[keyIndex] = item;
+      updated++;
+    } else {
+      current.push(item);
+      added++;
+    }
+  });
+
+  return { data: current, added, updated, skipped };
+}
+
+async function downloadAdminJson() {
+  if (!isAdmin()) {
+    toast("Admin access required", "lock");
+    return;
+  }
+
+  try {
+    // Refresh from the latest Sheet copy before creating the backup when possible.
+    if (sheetUrl() && !sheetEndpointDead) await pullFromSheet(true);
+
+    const backup = {
+      format: "Sparix Global Talent Dashboard Backup",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        availability: jsonSafeClone(state.availability || []),
+        scheduled: jsonSafeClone(state.scheduled || []),
+        submissions: jsonSafeClone(state.submissions || [])
+      },
+      config: jsonSafeClone(config || DEFAULT_CONFIG)
+    };
+
+    // __sheetOrder is a local display helper and must never become part of a backup.
+    (backup.data.submissions || []).forEach(row => delete row.__sheetOrder);
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const now = new Date();
+    const stamp = now.getFullYear() +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      String(now.getDate()).padStart(2, "0") + "_" +
+      String(now.getHours()).padStart(2, "0") +
+      String(now.getMinutes()).padStart(2, "0");
+    a.href = url;
+    a.download = "Sparix_Global_Talent_Backup_" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("JSON backup downloaded · complete dashboard data", "download_done");
+  } catch (e) {
+    console.error("JSON export", e);
+    toast("JSON download failed", "error");
+  }
+}
+
+async function importAdminJson(file) {
+  if (!isAdmin()) {
+    toast("Admin access required", "lock");
+    return;
+  }
+  if (!file) return;
+
+  const btn = document.getElementById("uploadJsonBtn");
+  const oldHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = icon("hourglass_top") + " Importing…";
+  }
+
+  try {
+    const text = await file.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (_) {
+      throw new Error("The selected file is not valid JSON.");
+    }
+
+    // Accept our backup format or a plain {availability, scheduled, submissions} JSON.
+    const source = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+    if (!source || typeof source !== "object") throw new Error("Invalid backup structure.");
+
+    const incomingAvailability = Array.isArray(source.availability) ? source.availability : null;
+    const incomingScheduled = Array.isArray(source.scheduled) ? source.scheduled : null;
+    const incomingSubmissions = Array.isArray(source.submissions) ? source.submissions : null;
+    if (!incomingAvailability && !incomingScheduled && !incomingSubmissions) {
+      throw new Error("No Availability, Scheduled or Submissions data found in this JSON file.");
+    }
+
+    // Pull latest cloud data first, so an import is merged with the current Sheet copy.
+    if (sheetUrl() && !sheetEndpointDead) {
+      await pullFromSheet(true);
+    }
+
+    const avResult = incomingAvailability
+      ? mergeImportedRecords(state.availability, incomingAvailability, keyAvailability)
+      : { data: state.availability, added: 0, updated: 0, skipped: 0 };
+    const scResult = incomingScheduled
+      ? mergeImportedRecords(state.scheduled, incomingScheduled, keyScheduled)
+      : { data: state.scheduled, added: 0, updated: 0, skipped: 0 };
+    const subResult = incomingSubmissions
+      ? mergeImportedRecords(state.submissions, incomingSubmissions, keySubmission)
+      : { data: state.submissions, added: 0, updated: 0, skipped: 0 };
+
+    const totalAdded = avResult.added + scResult.added + subResult.added;
+    const totalUpdated = avResult.updated + scResult.updated + subResult.updated;
+    const totalSkipped = avResult.skipped + scResult.skipped + subResult.skipped;
+    const hasDataChanges = totalAdded > 0 || totalUpdated > 0;
+
+    state.availability = avResult.data;
+    state.scheduled = scResult.data;
+    state.submissions = subResult.data;
+
+    // Merge backup config lists without deleting existing configuration.
+    let configChanged = false;
+    const incomingConfig = parsed && parsed.config && typeof parsed.config === "object" ? parsed.config : null;
+    if (incomingConfig) {
+      ["recruiters", "bdms", "statuses"].forEach(key => {
+        if (!Array.isArray(incomingConfig[key])) return;
+        const existing = Array.isArray(config[key]) ? config[key].map(String) : [];
+        incomingConfig[key].map(v => String(v).trim()).filter(Boolean).forEach(v => {
+          if (!existing.some(x => x.toLowerCase() === v.toLowerCase())) {
+            existing.push(v);
+            configChanged = true;
+          }
+        });
+        config[key] = existing;
+      });
+      persistConfig();
+      fillConfigTextareas();
+    }
+
+    if (!hasDataChanges && !configChanged) {
+      persist();
+      renderAvailability();
+      renderScheduled();
+      renderSubmissions();
+      renderUpcomingInto("overviewUpcoming");
+      renderUpcomingInto("alertsList");
+      renderStats();
+      toast("No new data found · exact duplicates skipped", "check_circle");
+      return;
+    }
+
+    persist();
+    renderAvailability();
+    renderScheduled();
+    renderSubmissions();
+    renderUpcomingInto("overviewUpcoming");
+    renderUpcomingInto("alertsList");
+    renderStats();
+    scheduleReminders();
+
+    // Push the merged complete snapshot. Existing Sheet data is retained.
+    dirty = true;
+    const pushed = await pushToSheet(false);
+    if (!pushed) throw new Error("Data merged locally, but the Google Sheet push failed.");
+
+    if (configChanged) {
+      const configSaved = await saveConfigToSheet();
+      if (!configSaved) {
+        toast("Data pushed · config kept locally — verify Config sheet", "warning");
+      }
+    }
+
+    const parts = [];
+    if (totalAdded) parts.push(totalAdded + " new");
+    if (totalUpdated) parts.push(totalUpdated + " updated");
+    if (totalSkipped) parts.push(totalSkipped + " exact duplicate" + (totalSkipped === 1 ? "" : "s") + " skipped");
+    if (configChanged) parts.push("config merged");
+    toast("JSON import complete · " + parts.join(" · "), "cloud_done");
+  } catch (e) {
+    console.error("JSON import", e);
+    toast("JSON import failed: " + (e.message || "invalid file"), "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+    }
+    const input = document.getElementById("uploadJsonInput");
+    if (input) input.value = "";
+  }
+}
+
+/* ---------- Admin Excel export ---------- */
+function loadXlsxLibrary() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (window._xlsxLoading) return window._xlsxLoading;
+
+  window._xlsxLoading = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+    script.async = true;
+    script.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error("Excel library did not load"));
+    script.onerror = () => reject(new Error("Could not load Excel export library"));
+    document.head.appendChild(script);
+  });
+  return window._xlsxLoading;
+}
+
+function excelSafe(value) {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value;
+  return String(value).replace(/[\r\n]+/g, " ").trim();
+}
+
+function excelDate(value) {
+  const s = excelSafe(value);
+  if (!s) return "";
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? s : d;
+}
+
+function setExcelWidths(XLSX, ws, widths) {
+  ws["!cols"] = widths.map(w => ({ wch: w }));
+}
+
+function addAutoFilter(ws, XLSX) {
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
+  ws["!autofilter"] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: 0, c: range.s.c },
+      e: { r: range.e.r, c: range.e.c }
+    })
+  };
+}
+
+function buildExcelSheet(XLSX, headers, rows, widths) {
+  const ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
+  setExcelWidths(XLSX, ws, widths || headers.map(() => 18));
+  addAutoFilter(ws, XLSX);
+  return ws;
+}
+
+async function downloadAdminExcel() {
+  if (!isAdmin()) {
+    toast("Admin access required", "lock");
+    return;
+  }
+
+  const btn = document.getElementById("downloadExcelBtn");
+  const oldHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = icon("hourglass_top") + " Preparing…";
+  }
+
+  try {
+    const XLSX = await loadXlsxLibrary();
+    const wb = XLSX.utils.book_new();
+
+    /* Submissions — export ALL submission records, ignoring dashboard filters. */
+    const submissionHeaders = [
+      "JPC", "Role", "Candidate", "Recruiter", "Submission Date",
+      "Status", "BDM", "Update 1", "Update 2", "Update 3"
+    ];
+    const submissionRows = (state.submissions || []).map(r => [
+      excelSafe(r.jpc), excelSafe(r.role), excelSafe(r.candidateName),
+      excelSafe(r.recruiterName), excelDate(r.submissionDate),
+      excelSafe(r.currentStatus), excelSafe(r.bdm), excelSafe(r.update1),
+      excelSafe(r.update2), excelSafe(r.update3)
+    ]);
+    const wsSub = buildExcelSheet(XLSX, submissionHeaders, submissionRows,
+      [16, 22, 28, 20, 20, 18, 20, 34, 34, 34]);
+    XLSX.utils.book_append_sheet(wb, wsSub, "Submissions");
+
+    /* Scheduled interviews — export every interview record. */
+    const interviewHeaders = [
+      "Candidate", "Recruiter", "Interview Date", "Interview Time",
+      "Status", "Role", "JPC", "BDM", "Notes"
+    ];
+    const interviewRows = (state.scheduled || []).map(r => {
+      const ts = parseWhen(r.when);
+      return [
+        excelSafe(r.candidate),
+        excelSafe(r.recruiter),
+        ts ? new Date(ts.getFullYear(), ts.getMonth(), ts.getDate()) : "",
+        ts ? ts.toTimeString().slice(0, 5) : excelSafe(r.time),
+        excelSafe(r.status || "Pending"),
+        excelSafe(r.role),
+        excelSafe(r.jpc),
+        excelSafe(r.bdm),
+        excelSafe(r.notes)
+      ];
+    });
+    const wsInt = buildExcelSheet(XLSX, interviewHeaders, interviewRows,
+      [28, 20, 18, 18, 18, 22, 16, 20, 36]);
+    XLSX.utils.book_append_sheet(wb, wsInt, "Interviews");
+
+    /* Availability / interview slots. Each slot gets its own column. */
+    const availability = state.availability || [];
+    const maxSlots = availability.reduce((max, r) => Math.max(max, (r.slots || []).length), 0);
+    const slotHeaders = ["Role", "Candidate"].concat(
+      Array.from({ length: maxSlots }, (_, i) => "Slot " + (i + 1))
+    );
+    const slotRows = availability.map(r => [
+      excelSafe(r.role || "General"),
+      excelSafe(r.name),
+      ...(Array.from({ length: maxSlots }, (_, i) => excelSafe((r.slots || [])[i])))
+    ]);
+    const wsSlots = buildExcelSheet(XLSX, slotHeaders, slotRows,
+      [22, 28].concat(Array.from({ length: maxSlots }, () => 24)));
+    XLSX.utils.book_append_sheet(wb, wsSlots, "Availability");
+
+    // Keep all three sheets readable and ready for filtering in Excel.
+    [wsSub, wsInt, wsSlots].forEach(ws => {
+      if (ws["!ref"]) {
+        const rg = XLSX.utils.decode_range(ws["!ref"]);
+        ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+        ws["!autofilter"] = { ref: XLSX.utils.encode_range(rg) };
+
+        // Professional header row styling when the browser-side Excel library supports it.
+        for (let c = rg.s.c; c <= rg.e.c; c++) {
+          const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+          if (cell) {
+            cell.s = {
+              font: { bold: true, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "1F2937" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: {
+                top: { style: "thin", color: { rgb: "D1D5DB" } },
+                bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+                left: { style: "thin", color: { rgb: "D1D5DB" } },
+                right: { style: "thin", color: { rgb: "D1D5DB" } }
+              }
+            };
+          }
+        }
+        if (ws["!rows"] === undefined) ws["!rows"] = [];
+        ws["!rows"][0] = { hpt: 22 };
+      }
+    });
+
+    // Format date columns consistently in the exported workbook.
+    const formatColumn = (ws, col, format) => {
+      const rg = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : null;
+      if (!rg) return;
+      for (let r = 1; r <= rg.e.r; r++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c: col })];
+        if (cell && cell.v instanceof Date) cell.z = format;
+      }
+    };
+    formatColumn(wsSub, 4, "dd-mmm-yyyy");
+    formatColumn(wsInt, 2, "dd-mmm-yyyy");
+
+    const now = new Date();
+    const stamp = now.getFullYear() +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      String(now.getDate()).padStart(2, "0") + "_" +
+      String(now.getHours()).padStart(2, "0") +
+      String(now.getMinutes()).padStart(2, "0");
+
+    XLSX.writeFile(wb, "Sparix_Global_Talent_Data_" + stamp + ".xlsx");
+    toast("Excel downloaded · 3 sheets with filters", "download_done");
+  } catch (e) {
+    console.error("Excel export", e);
+    toast("Excel download failed — check your internet connection", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+    }
+  }
+}
+
 document.getElementById("pullBtn").onclick = pullFromSheet;
+const downloadExcelBtn = document.getElementById("downloadExcelBtn");
+if (downloadExcelBtn) downloadExcelBtn.onclick = downloadAdminExcel;
+const downloadJsonBtn = document.getElementById("downloadJsonBtn");
+if (downloadJsonBtn) downloadJsonBtn.onclick = downloadAdminJson;
+const uploadJsonBtn = document.getElementById("uploadJsonBtn");
+const uploadJsonInput = document.getElementById("uploadJsonInput");
+if (uploadJsonBtn && uploadJsonInput) {
+  uploadJsonBtn.onclick = () => {
+    if (!isAdmin()) { toast("Admin access required", "lock"); return; }
+    uploadJsonInput.click();
+  };
+  uploadJsonInput.onchange = () => {
+    const file = uploadJsonInput.files && uploadJsonInput.files[0];
+    if (file) importAdminJson(file);
+  };
+}
 document.getElementById("enableNotifyBtn").onclick = enableAlerts;
 document.getElementById("enableNotifyBtn2").onclick = enableAlerts;
 document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep played", "volume_up"); };
