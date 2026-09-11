@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sparix Interview Dashboard</title>
-  <link rel="icon" type="image/png" href="https://i.ibb.co/QvkJ31YR/clipart321772.png">
-  <link rel="apple-touch-icon" href="https://i.ibb.co/QvkJ31YR/clipart321772.png">
-  <link rel="icon" type="image/png" href="https://i.ibb.co/QvkJ31YR/clipart321772.png">
-  <link rel="apple-touch-icon" href="https://i.ibb.co/QvkJ31YR/clipart321772.png">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10822/10822409.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..700,0..1,-50..200&display=swap">
 <style>
   :root {
@@ -810,11 +810,11 @@
     <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
       <span class="material-symbols-outlined">menu</span>
     </button>
-   <a href="https://securebugs.github.io/InterviewTracker/" style="text-decoration: none; color: inherit;"><div class="mb-title">Sparix Global<span>Interview Dashboard</span></div></a>
+    <div class="mb-title">Sparix Global<span>Talent Interview Dashboard</span></div>
   </div>
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
-   <a href="https://securebugs.github.io/InterviewTracker/" style="text-decoration: none; color: inherit;"><div class="brand">Sparix Global<span>Interview Dashboard</span></div></a>
+    <div class="brand">Sparix Global<span>Talent Interview Dashboard</span></div>
     <button type="button" class="nav-btn active" data-panel="overview">
       <span class="material-symbols-outlined">dashboard</span> Overview
     </button>
@@ -1006,16 +1006,6 @@
           <button type="button" class="btn" id="pushBtn">
             <span class="material-symbols-outlined">cloud_upload</span> Push
           </button>
-          <button type="button" class="btn btn-dark admin-only" id="downloadExcelBtn">
-            <span class="material-symbols-outlined">download</span> Download Excel
-          </button>
-          <button type="button" class="btn admin-only" id="downloadJsonBtn">
-            <span class="material-symbols-outlined">data_object</span> Download JSON
-          </button>
-          <button type="button" class="btn admin-only" id="uploadJsonBtn">
-            <span class="material-symbols-outlined">upload_file</span> Upload JSON
-          </button>
-          <input type="file" id="uploadJsonInput" accept="application/json,.json" style="display:none">
         </div>
         <div class="field" style="margin-top:18px">
           <label>Signed-in name</label>
@@ -1127,7 +1117,7 @@ const USER_KEY = "emb_user_v1";
  * Example: "https://script.google.com/macros/s/AKfycbx.../exec"
  * Deploy script as: Execute as Me · Who has access: Anyone
  */
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbwGQEtzTjJOUhnz-U5U-HPMhajLB8mveh3oSph5lZ6DPpZ2Qi-NoPsbAFCvn0OR9ifl/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzIKuLlb9QB4iB3g_Y04cOU_wSYUzhA0zAX2JLQbzs-o32gBnVv7CPsc-hOuuLNxT76/exec";
 
 const DEFAULT = { availability: [], scheduled: [], submissions: [] };
 const DEFAULT_CONFIG = {
@@ -1278,162 +1268,6 @@ function linesToArr(text) {
 function persist() {
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
 }
-
-/* ---------- Multi-device sync metadata / record identity ----------
- * These helpers must be declared before the first normalizeStateRecords()
- * call because the app initializes local data immediately on page load.
- */
-const SYNC_META_KEY = "emb_sync_meta_v2";
-const SYNC_QUEUE_KEY = "emb_sync_queue_v2";
-const DEVICE_ID_KEY = "emb_device_id_v2";
-
-function makeId(prefix) {
-  const p = String(prefix || "rec");
-  try {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return p + "-" + window.crypto.randomUUID();
-    }
-  } catch (_) {}
-  return p + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
-}
-
-function getDeviceId() {
-  let id = "";
-  try { id = localStorage.getItem(DEVICE_ID_KEY) || ""; } catch (_) {}
-  if (!id) {
-    id = makeId("device");
-    try { localStorage.setItem(DEVICE_ID_KEY, id); } catch (_) {}
-  }
-  return id;
-}
-
-function getSyncMeta() {
-  try {
-    const raw = localStorage.getItem(SYNC_META_KEY);
-    const meta = raw ? JSON.parse(raw) : {};
-    return {
-      revision: Number.isFinite(Number(meta.revision)) ? Number(meta.revision) : 0
-    };
-  } catch (_) {
-    return { revision: 0 };
-  }
-}
-
-function setSyncMeta(patch) {
-  const current = getSyncMeta();
-  const next = { ...current, ...(patch || {}) };
-  next.revision = Number.isFinite(Number(next.revision)) ? Number(next.revision) : 0;
-  try { localStorage.setItem(SYNC_META_KEY, JSON.stringify(next)); } catch (_) {}
-  return next;
-}
-
-function getMutationQueue() {
-  try {
-    const raw = localStorage.getItem(SYNC_QUEUE_KEY);
-    const q = raw ? JSON.parse(raw) : [];
-    return Array.isArray(q) ? q : [];
-  } catch (_) {
-    return [];
-  }
-}
-
-function setMutationQueue(queue) {
-  const safe = Array.isArray(queue) ? queue : [];
-  try { localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(safe)); } catch (_) {}
-  return safe;
-}
-
-function ensureRecordIdentity(row, type) {
-  const r = row && typeof row === "object" ? row : {};
-  const prefix = type === "availability" || type === "av" ? "av"
-    : type === "scheduled" || type === "sc" ? "sc" : "sub";
-
-  if (!r.id || !String(r.id).trim()) r.id = makeId(prefix);
-  else r.id = String(r.id);
-
-  const v = Number(r.version);
-  r.version = Number.isFinite(v) && v > 0 ? v : 1;
-  if (!r.updatedAt) r.updatedAt = new Date().toISOString();
-  if (!r.updatedBy) r.updatedBy = currentUser && currentUser.name ? String(currentUser.name) : getDeviceId();
-  r.deleted = r.deleted === true;
-  return r;
-}
-
-function normalizeStateRecords() {
-  state.availability = (Array.isArray(state.availability) ? state.availability : [])
-    .map(r => ensureRecordIdentity(r, "av"));
-  state.scheduled = (Array.isArray(state.scheduled) ? state.scheduled : [])
-    .map(r => ensureRecordIdentity(r, "sc"));
-  state.submissions = (Array.isArray(state.submissions) ? state.submissions : [])
-    .map((r, i) => {
-      const row = ensureRecordIdentity(r, "sub");
-      // Preserve sheet ordering without making it part of JSON equality.
-      try {
-        Object.defineProperty(row, "__sheetOrder", {
-          value: Number.isFinite(Number(r && r.__sheetOrder)) ? Number(r.__sheetOrder) : i,
-          writable: true,
-          configurable: true,
-          enumerable: false
-        });
-      } catch (_) {}
-      return row;
-    });
-}
-
-function queueMutation(type, operation, record) {
-  const validTypes = ["availability", "scheduled", "submissions"];
-  if (!validTypes.includes(type)) return null;
-
-  const prefix = type === "availability" ? "av" : type === "scheduled" ? "sc" : "sub";
-  const r = ensureRecordIdentity({ ...(record || {}) }, prefix);
-  const now = new Date().toISOString();
-  const op = operation === "delete" ? "delete" : "upsert";
-
-  // Keep BOTH the dashboard names and the server API names.  The previous
-  // build queued {type, operation, id}, while Apps Script reads
-  // {entity, op, recordId}; that caused every mutation to be rejected.
-  const mutation = {
-    mutationId: makeId("mut"),
-    entity: type,
-    op: op,
-    recordId: r.id,
-    type: type,
-    operation: op,
-    id: r.id,
-    record: r,
-    clientVersion: Number(r.version || 1),
-    timestamp: now,
-    deviceId: getDeviceId(),
-    user: currentUser && currentUser.name ? String(currentUser.name) : getDeviceId()
-  };
-
-  const queue = getMutationQueue();
-  queue.push(mutation);
-  setMutationQueue(queue);
-  dirty = true;
-  return mutation;
-}
-
-// Stable logical keys used only for legacy JSON import compatibility.
-// Normal server synchronization uses permanent record IDs.
-function keyAvailability(r, i) {
-  if (r && r.id) return "id:" + String(r.id);
-  const k = (String(r && r.role || "").trim() + "||" + String(r && r.name || "").trim()).toLowerCase();
-  return k === "||" ? "av-" + i + "-" + JSON.stringify(r || {}).slice(0, 80) : k;
-}
-function keyScheduled(r, i) {
-  if (r && r.id) return "id:" + String(r.id);
-  const k = (String(r && r.candidate || "").trim() + "||" + String(r && r.when || "").trim()).toLowerCase();
-  return k === "||" ? "sc-" + i + "-" + JSON.stringify(r || {}).slice(0, 80) : k;
-}
-function keySubmission(r, i) {
-  if (r && r.id) return "id:" + String(r.id);
-  const k = (String(r && r.jpc || "").trim() + "||" + String(r && r.candidateName || "").trim()).toLowerCase();
-  return k === "||" ? "sub-" + i + "-" + JSON.stringify(r || {}).slice(0, 120) : k;
-}
-
-// Ensure legacy/local records have permanent IDs before any sync operation.
-try { normalizeStateRecords(); } catch (e) { console.warn("Initial record normalization failed", e); }
 
 function esc(s) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -1923,17 +1757,42 @@ function renderStats() {
 
 
 
+
 let dirty = false;
 let pulling = false;
 let pushing = false;
 let pushQueued = false;
 let autoPullTimer = null;
 let syncTimer = null;
-let sheetEndpointDead = false;
+
+/** Multi-user: only these keys are upserted; deletes are explicit */
+let touched = { availability: new Set(), scheduled: new Set(), submissions: new Set() };
+let deleted = { availability: new Set(), scheduled: new Set(), submissions: new Set() };
+
+function markTouched(kind, key) {
+  if (!key || key === "||") return;
+  touched[kind].add(key);
+  deleted[kind].delete(key);
+  dirty = true;
+}
+function markDeleted(kind, key) {
+  if (!key || key === "||") return;
+  deleted[kind].add(key);
+  touched[kind].delete(key);
+  dirty = true;
+}
+function clearSyncMarks() {
+  touched.availability.clear();
+  touched.scheduled.clear();
+  touched.submissions.clear();
+  deleted.availability.clear();
+  deleted.scheduled.clear();
+  deleted.submissions.clear();
+  dirty = false;
+}
 
 function refresh(opts) {
   opts = opts || {};
-  normalizeStateRecords();
   renderAvailability();
   renderScheduled();
   renderSubmissions();
@@ -1942,20 +1801,15 @@ function refresh(opts) {
   renderStats();
   persist();
   scheduleReminders();
-
-  if (opts.push) {
-    dirty = true;
-    queueSync();
-  }
+  if (opts.push) queueSync();
 }
 
-/* ---------- Sheet sync: mutation based, multi-device safe ---------- */
+/* ---------- Sheet sync (multi-user patch) ---------- */
 function sheetUrl() {
   const local = (localStorage.getItem("emb_sheet_url") || "").trim();
   if (local) return local;
   return (DEFAULT_SHEET_URL || "").trim();
 }
-
 function setSyncUI(ok, msg) {
   const dot = document.getElementById("syncDot");
   const lab = document.getElementById("syncLabel");
@@ -1963,168 +1817,71 @@ function setSyncUI(ok, msg) {
   if (lab) lab.textContent = msg || (ok ? "Synced" : "Not connected");
 }
 
+function keyAvailability(r) {
+  return (String(r.role || "").trim() + "||" + String(r.name || "").trim()).toLowerCase();
+}
+function keyScheduled(r) {
+  return (String(r.candidate || "").trim() + "||" + String(r.when || "").trim()).toLowerCase();
+}
+function keySubmission(r) {
+  return (String(r.jpc || "").trim() + "||" + String(r.candidateName || "").trim()).toLowerCase();
+}
+
 function fetchWithTimeout(resource, options, ms) {
   const ctrl = new AbortController();
-  const timeoutMs = ms || 20000;
-  const id = setTimeout(() => ctrl.abort(), timeoutMs);
-  return fetch(resource, { ...options, signal: ctrl.signal })
-    .finally(() => clearTimeout(id));
+  const id = setTimeout(() => ctrl.abort(), ms || 20000);
+  return fetch(resource, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id));
 }
 
-function sheetRequestUrl(extraParams) {
-  const url = sheetUrl();
-  if (!url) return "";
-  const params = new URLSearchParams(extraParams || {});
-  params.set("_", String(Date.now()));
-  return url + (url.includes("?") ? "&" : "?") + params.toString();
-}
-
-function fetchSheetJsonViaJsonp(extraParams) {
-  const url = sheetUrl();
-  if (!url) return Promise.resolve(null);
-
-  return new Promise((resolve, reject) => {
-    const callback = "__sparixSyncJsonp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-    const script = document.createElement("script");
-    const params = new URLSearchParams(extraParams || {});
-    params.set("callback", callback);
-    params.set("_", String(Date.now()));
-
-    let finished = false;
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error("Sheet JSONP request timed out. Check the Apps Script Web App deployment/access."));
-    }, 15000);
-
-    function cleanup() {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
-      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    window[callback] = function(data) {
-      cleanup();
-      if (data && data.ok === false) reject(new Error(data.error || "Sheet error"));
-      else resolve(data);
-    };
-
-    script.onerror = function() {
-      cleanup();
-      reject(new Error("Could not reach the Apps Script Web App."));
-    };
-    script.src = url + (url.includes("?") ? "&" : "?") + params.toString();
-    document.head.appendChild(script);
-  });
-}
-
-async function fetchSheetJson(extraParams) {
+async function fetchSheetJson() {
   const url = sheetUrl();
   if (!url) return null;
-  if (sheetEndpointDead) return null;
-
-  // Apps Script Web Apps commonly redirect ContentService responses.
-  // Use JSONP first so the browser can read the response without CORS.
-  try {
-    const jsonp = await fetchSheetJsonViaJsonp(extraParams);
-    sheetEndpointDead = false;
-    return jsonp;
-  } catch (jsonpFirstErr) {
-    console.warn("Sheet JSONP GET failed; trying fetch fallback:", jsonpFirstErr && jsonpFirstErr.message ? jsonpFirstErr.message : jsonpFirstErr);
-  }
-
-  try {
-    const res = await fetchWithTimeout(sheetRequestUrl(extraParams), {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      credentials: "omit"
-    }, 12000);
-
-    if (res.status === 404) {
-      sheetEndpointDead = true;
-      throw new Error("HTTP 404 — Google Apps Script Web App URL is unavailable or its deployment was removed.");
-    }
-    if (!res.ok) throw new Error("HTTP " + res.status);
-
-    let json;
-    try { json = await res.json(); }
-    catch (_) { throw new Error("Sheet returned a non-JSON response."); }
-    if (json && json.ok === false) throw new Error(json.error || "Sheet error");
-    sheetEndpointDead = false;
-    return json;
-  } catch (e) {
-    // Apps Script ContentService can be blocked by browser CORS/redirect rules,
-    // especially from file://. JSONP uses a script request and avoids that issue.
-    console.warn("Sheet GET fetch failed; trying JSONP fallback:", e && e.message ? e.message : e);
-    try {
-      const json = await fetchSheetJsonViaJsonp(extraParams);
-      sheetEndpointDead = false;
-      return json;
-    } catch (jsonpErr) {
-      if (e && e.name === "AbortError") {
-        throw new Error("Sheet request timed out. JSONP fallback also failed. Check the Apps Script Web App deployment/access.");
-      }
-      throw jsonpErr;
-    }
-  }
+  const sep = url.includes("?") ? "&" : "?";
+  const res = await fetchWithTimeout(url + sep + "_=" + Date.now(), {
+    method: "GET", redirect: "follow", cache: "no-store"
+  }, 20000);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const json = await res.json();
+  if (json && json.ok === false) throw new Error(json.error || "Sheet error");
+  return json;
 }
 
-async function postStateToSheet(payload) {
-  const url = sheetUrl();
-  if (!url) throw new Error("No Sheet URL configured.");
-
-  let posted = false;
-  try {
-    await fetchWithTimeout(url, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: payload,
-      redirect: "follow"
-    }, 12000);
-    posted = true;
-  } catch (e) {
-    // no-cors POST has no readable response. If the browser times out, use
-    // sendBeacon as the transport fallback; the following JSONP GET verifies
-    // the canonical state before the queue is cleared.
-    console.warn("Sheet POST transport failed; trying sendBeacon:", e && e.message ? e.message : e);
-  }
-
-  if (!posted && navigator.sendBeacon) {
-    try {
-      posted = navigator.sendBeacon(
-        url,
-        new Blob([payload], { type: "text/plain;charset=utf-8" })
-      );
-    } catch (_) {}
-  }
-
-  if (!posted) throw new Error("Could not send changes to the Apps Script Web App.");
-}
-
-function removeDeletedRecords() {
-  state.availability = (state.availability || []).filter(r => !r.deleted);
-  state.scheduled = (state.scheduled || []).filter(r => !r.deleted);
-  state.submissions = (state.submissions || []).filter(r => !r.deleted);
-}
-
-function applyCanonicalRecords(json) {
+function applyRemoteJson(json) {
   if (!json) return;
-  if (Array.isArray(json.availability)) {
-    state.availability = json.availability.filter(r => !r.deleted).map(r => ensureRecordIdentity(r, "av"));
+  // Full replace from server, then re-apply local pending deletes + touched rows
+  const localAv = (state.availability || []).slice();
+  const localSc = (state.scheduled || []).slice();
+  const localSub = (state.submissions || []).slice();
+
+  if (Array.isArray(json.availability)) state.availability = json.availability;
+  if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled;
+  if (Array.isArray(json.submissions)) state.submissions = json.submissions;
+
+  // Remove pending deletes from pulled data
+  if (deleted.availability.size) {
+    state.availability = state.availability.filter(r => !deleted.availability.has(keyAvailability(r)));
   }
-  if (Array.isArray(json.scheduled)) {
-    state.scheduled = json.scheduled.filter(r => !r.deleted).map(r => ensureRecordIdentity(r, "sc"));
+  if (deleted.scheduled.size) {
+    state.scheduled = state.scheduled.filter(r => !deleted.scheduled.has(keyScheduled(r)));
   }
-  if (Array.isArray(json.submissions)) {
-    state.submissions = json.submissions.filter(r => !r.deleted).map((r, i) => {
-      const row = ensureRecordIdentity({ ...r }, "sub");
-      Object.defineProperty(row, "__sheetOrder", { value: i, writable: true, configurable: true, enumerable: false });
-      return row;
+  if (deleted.submissions.size) {
+    state.submissions = state.submissions.filter(r => !deleted.submissions.has(keySubmission(r)));
+  }
+
+  // Re-apply local touched rows (user edits win for those keys only)
+  const upsert = (arr, localArr, keyFn, kind) => {
+    if (!touched[kind].size) return arr;
+    const map = new Map(arr.map(r => [keyFn(r), r]));
+    localArr.forEach(r => {
+      const k = keyFn(r);
+      if (touched[kind].has(k)) map.set(k, r);
     });
-  }
+    return Array.from(map.values());
+  };
+  state.availability = upsert(state.availability, localAv, keyAvailability, "availability");
+  state.scheduled = upsert(state.scheduled, localSc, keyScheduled, "scheduled");
+  state.submissions = upsert(state.submissions, localSub, keySubmission, "submissions");
+
   if (json.config) {
     config = {
       recruiters: json.config.recruiters || config.recruiters,
@@ -2143,106 +1900,45 @@ function applyCanonicalRecords(json) {
     persistUser();
     updateUserBadge();
   }
-  normalizeStateRecords();
 }
 
-function applyIncrementalChanges(json) {
-  if (!json || !Array.isArray(json.changes)) return false;
-
-  const arrays = {
-    availability: state.availability || [],
-    scheduled: state.scheduled || [],
-    submissions: state.submissions || []
-  };
-
-  const types = ["availability", "scheduled", "submissions"];
-
-  (json.changes || []).forEach(change => {
-    const type = change.type === "submissions" ? "submissions" : change.type;
-    if (!types.includes(type)) return;
-
-    const arr = arrays[type];
-    const rec = change.record ? { ...change.record } : null;
-    const id = change.id || (rec && rec.id);
-    if (!id) return;
-
-    const idx = arr.findIndex(r => String(r.id) === String(id));
-
-    if (change.operation === "delete" || (rec && rec.deleted === true)) {
-      if (idx !== -1) arr.splice(idx, 1);
-      return;
-    }
-
-    if (!rec) return;
-    ensureRecordIdentity(rec, type === "availability" ? "av" : type === "scheduled" ? "sc" : "sub");
-
-    if (idx === -1) arr.push(rec);
-    else {
-      const localVersion = Number(arr[idx].version || 0);
-      const remoteVersion = Number(rec.version || 0);
-      if (remoteVersion >= localVersion) arr[idx] = rec;
-    }
-  });
-
-  state.availability = arrays.availability;
-  state.scheduled = arrays.scheduled;
-  state.submissions = arrays.submissions;
-  if (json.config || json.users) {
-    applyCanonicalRecords({ config: json.config, users: json.users });
-  }
-  if (Number.isFinite(Number(json.revision))) {
-    setSyncMeta({ revision: Number(json.revision) });
-  }
-  normalizeStateRecords();
-  return true;
+function queueSync() {
+  if (!sheetUrl()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => pushToSheet(true), 400);
 }
 
-async function pullFromSheet(silent) {
+async function postStateToSheet(payload) {
   const url = sheetUrl();
-  if (!url) {
-    if (!silent) toast("Add Web App URL first", "link_off");
-    return false;
-  }
-  if (pushing || pulling) return false;
-
-  pulling = true;
-  setSyncUI(null, silent ? "Live…" : "Pulling…");
-
+  await fetchWithTimeout(url, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: payload,
+    redirect: "follow"
+  }, 25000);
   try {
-    const meta = getSyncMeta();
-    const json = await fetchSheetJson({ since: String(meta.revision || 0), deviceId: getDeviceId() });
-
-    if (json && Array.isArray(json.changes)) {
-      applyIncrementalChanges(json);
-    } else {
-      applyCanonicalRecords(json);
-      if (json && Number.isFinite(Number(json.revision))) {
-        setSyncMeta({ revision: Number(json.revision) });
-      }
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([payload], { type: "text/plain;charset=utf-8" }));
     }
+  } catch (_) {}
+}
 
-    persist();
-    renderAvailability();
-    renderScheduled();
-    renderSubmissions();
-    renderUpcomingInto("overviewUpcoming");
-    renderUpcomingInto("alertsList");
-    renderStats();
-    scheduleReminders();
-
-    dirty = getMutationQueue().length > 0;
-    const c = (state.submissions || []).length;
-    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + c + " submissions · " + new Date().toLocaleTimeString());
-    if (!silent) toast("Loaded · " + c + " submissions", "cloud_download");
-    return true;
-  } catch (e) {
-    console.warn("Sheet pull stopped:", e.message || e);
-    setSyncUI(false, sheetEndpointDead ? "Sheet URL unavailable" : "Pull failed");
-    if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
-    return false;
-  } finally {
-    pulling = false;
-  }
+function buildPatchPayload() {
+  const avTouched = (state.availability || []).filter(r => touched.availability.has(keyAvailability(r)));
+  const scTouched = (state.scheduled || []).filter(r => touched.scheduled.has(keyScheduled(r)));
+  const subTouched = (state.submissions || []).filter(r => touched.submissions.has(keySubmission(r)));
+  return JSON.stringify({
+    mode: "patch",
+    action: "upsert",
+    availabilityTouched: avTouched,
+    availabilityDeleted: [...deleted.availability],
+    scheduledTouched: scTouched,
+    scheduledDeleted: [...deleted.scheduled],
+    submissionsTouched: subTouched,
+    submissionsDeleted: [...deleted.submissions],
+    updatedAt: new Date().toISOString()
+  });
 }
 
 async function pushToSheet(silent) {
@@ -2252,109 +1948,109 @@ async function pushToSheet(silent) {
     setSyncUI(false, "No URL");
     return false;
   }
-  if (pushing) {
-    pushQueued = true;
-    return false;
-  }
-
-  const queue = getMutationQueue();
-  if (!queue.length) {
-    dirty = false;
+  const hasWork =
+    touched.availability.size || touched.scheduled.size || touched.submissions.size ||
+    deleted.availability.size || deleted.scheduled.size || deleted.submissions.size;
+  if (!hasWork && !dirty) {
+    if (!silent) toast("Nothing to save", "check");
     return true;
   }
+  if (pushing) { pushQueued = true; return false; }
+
+  for (let i = 0; i < 50 && pulling; i++) await new Promise(r => setTimeout(r, 100));
 
   pushing = true;
   setSyncUI(null, "Saving…");
-
   try {
-    const payload = JSON.stringify({
-      action: "mutations",
-      deviceId: getDeviceId(),
-      baseRevision: Number(getSyncMeta().revision || 0),
-      mutations: queue.map(m => ({
-        ...m,
-        entity: m.entity || m.type,
-        op: m.op || m.operation,
-        recordId: m.recordId || m.id || (m.record && m.record.id),
-        type: m.type || m.entity,
-        operation: m.operation || m.op,
-        id: m.id || m.recordId || (m.record && m.record.id),
-        clientVersion: Number(
-          m.clientVersion != null ? m.clientVersion :
-          (m.previous && m.previous.version != null ? m.previous.version :
-          (m.record && m.record.version != null ? m.record.version : 0))
-        )
-      })),
-      user: currentUser ? { name: currentUser.name, role: currentUser.role } : { name: getDeviceId(), role: "User" }
-    });
-
-    const beforeIds = new Set(queue.map(m => m.mutationId));
-    await postStateToSheet(payload);
-
-    // POST is no-cors, so its response is intentionally unreadable. Verify
-    // the write with a direct GET instead of calling pullFromSheet(), because
-    // pullFromSheet() correctly refuses to run while a push is in progress.
-    await new Promise(r => setTimeout(r, 350));
-    const meta = getSyncMeta();
-    const resultJson = await fetchSheetJson({
-      since: String(meta.revision || 0),
-      deviceId: getDeviceId()
-    });
-    if (!resultJson) throw new Error("Server acknowledgement could not be confirmed.");
-    if (Array.isArray(resultJson.changes)) applyIncrementalChanges(resultJson);
-    else applyCanonicalRecords(resultJson);
-    if (Number.isFinite(Number(resultJson.revision))) {
-      setSyncMeta({ revision: Number(resultJson.revision) });
+    // Pull others' changes first, keep only our touched/deleted
+    try {
+      const remote = await fetchSheetJson();
+      if (remote) applyRemoteJson(remote);
+    } catch (e) {
+      console.warn("pre-push pull", e);
     }
 
-    // Remove only mutations that were present in the submitted batch.
-    // New mutations created while the request was in-flight are retained.
-    const remaining = getMutationQueue().filter(m => !beforeIds.has(m.mutationId));
-    setMutationQueue(remaining);
+    const payload = buildPatchPayload();
+    await postStateToSheet(payload);
+    await new Promise(r => setTimeout(r, 1200));
 
-    dirty = remaining.length > 0;
+    try {
+      const check = await fetchSheetJson();
+      if (check) {
+        clearSyncMarks();
+        applyRemoteJson(check);
+      } else {
+        clearSyncMarks();
+      }
+    } catch (e) {
+      clearSyncMarks();
+      console.warn("verify", e);
+    }
+
     persist();
-
     renderAvailability();
     renderScheduled();
     renderSubmissions();
     renderStats();
-
     setSyncUI(true, "Saved · " + (state.submissions || []).length + " rows · " + new Date().toLocaleTimeString());
     if (!silent) toast("Saved to Google Sheet", "cloud_done");
     return true;
   } catch (e) {
-    console.error("mutation push", e);
-    setSyncUI(false, "Push failed — retrying");
-    dirty = getMutationQueue().length > 0;
-    if (!silent) toast("Push failed — changes kept locally and will retry", "error");
+    console.error(e);
+    setSyncUI(false, "Push failed");
+    if (!silent) toast("Push failed — check URL", "error");
     return false;
   } finally {
     pushing = false;
     if (pushQueued) {
       pushQueued = false;
-      setTimeout(() => pushToSheet(true), 100);
+      setTimeout(() => pushToSheet(true), 400);
     }
   }
 }
 
-function queueSync() {
-  if (!sheetUrl()) return;
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => pushToSheet(true), 50);
+async function pullFromSheet(silent) {
+  const url = sheetUrl();
+  if (!url) {
+    if (!silent) toast("Add Web App URL first", "link_off");
+    return;
+  }
+  if (pushing || pulling) return;
+  pulling = true;
+  setSyncUI(null, silent ? "Live…" : "Pulling…");
+  try {
+    const json = await fetchSheetJson();
+    applyRemoteJson(json);
+    persist();
+    renderAvailability();
+    renderScheduled();
+    renderSubmissions();
+    renderUpcomingInto("overviewUpcoming");
+    renderUpcomingInto("alertsList");
+    renderStats();
+    scheduleReminders();
+    const c = (state.submissions || []).length;
+    setSyncUI(true, (silent ? "Live · " : "Pulled · ") + c + " submissions · " + new Date().toLocaleTimeString());
+    if (!silent) toast("Loaded · " + c + " submissions", "cloud_download");
+  } catch (e) {
+    console.error("Pull error", e);
+    setSyncUI(false, "Pull failed");
+    if (!silent) toast("Pull failed: " + (e.message || "check deployment"), "error");
+  } finally {
+    pulling = false;
+  }
 }
 
 function startAutoPull() {
   if (autoPullTimer) clearInterval(autoPullTimer);
-  autoPullTimer = setInterval(async () => {
-    if (!sheetUrl() || sheetEndpointDead || document.hidden || pushing || pulling) return;
-
-    if (getMutationQueue().length) {
-      await pushToSheet(true);
-    } else {
-      await pullFromSheet(true);
-    }
-  }, 2000);
+  autoPullTimer = setInterval(() => {
+    if (!sheetUrl() || document.hidden || pushing || pulling) return;
+    const hasWork =
+      touched.availability.size || touched.scheduled.size || touched.submissions.size ||
+      deleted.availability.size || deleted.scheduled.size || deleted.submissions.size;
+    if (hasWork || dirty) pushToSheet(true);
+    else pullFromSheet(true);
+  }, 5000);
 }
 
 
@@ -2618,7 +2314,7 @@ function filteredSubmissions() {
   const fromD = from ? new Date(from + "T00:00:00") : null;
   const toD = to ? new Date(to + "T23:59:59") : null;
 
-  const filtered = (state.submissions || []).filter(r => {
+  return state.submissions.filter(r => {
     if (jpc && String(r.jpc || "").toLowerCase() !== jpc) return false;
     if (rec && String(r.recruiterName || "").toLowerCase() !== rec) return false;
     if (st && !(r.currentStatus || "").toLowerCase().includes(st)) return false;
@@ -2635,15 +2331,17 @@ function filteredSubmissions() {
     return blob.includes(q);
   });
 
-  // IMPORTANT: preserve Google Sheet row order. The last row in the Sheet
-  // is considered the newest and is displayed first. Date is NOT used to
-  // reorder rows because the user wants the physical Sheet insertion order.
-  return filtered.map((r, idx) => ({ r, idx })).sort((a, b) => {
-    const ao = Number.isFinite(a.r.__sheetOrder) ? a.r.__sheetOrder : -1;
-    const bo = Number.isFinite(b.r.__sheetOrder) ? b.r.__sheetOrder : -1;
-    if (ao !== bo) return bo - ao;
-    return b.idx - a.idx;
-  }).map(x => x.r);
+  // Newest first: by submission date desc, then original array order (later = newer)
+  const indexed = rows.map((r, idx) => ({ r, idx }));
+  indexed.sort((a, b) => {
+    const da = parseSubDate(a.r.submissionDate);
+    const db = parseSubDate(b.r.submissionDate);
+    if (da && db && da.getTime() !== db.getTime()) return db - da;
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    return b.idx - a.idx; // later in array = more recently added
+  });
+  return indexed.map(x => x.r);
 }
 
 function renderSubmissions() {
@@ -2765,7 +2463,6 @@ function editSubmission(index) {
   document.getElementById("m_cancel").onclick = closeModal;
   document.getElementById("m_save").onclick = () => {
     const next = {
-      ...(isNew ? {} : row),
       jpc: document.getElementById("m_jpc").value.trim(),
       role: document.getElementById("m_role").value.trim(),
       candidateName: document.getElementById("m_cand").value.trim() || "Candidate",
@@ -2777,17 +2474,11 @@ function editSubmission(index) {
       update2: document.getElementById("m_u2").value.trim(),
       update3: document.getElementById("m_u3").value.trim()
     };
-    ensureRecordIdentity(next, "sub");
-    if (isNew) {
-      state.submissions.push(next);
-      queueMutation("submissions", "upsert", next);
-    } else {
-      state.submissions[index] = next;
-      queueMutation("submissions", "upsert", next);
-    }
+    if (isNew) state.submissions.push(next);
+    else state.submissions[index] = next;
+    markTouched("submissions", keySubmission(next));
     closeModal();
-    refresh({ push: false });
-    pushToSheet(false);
+    refresh({ push: true });
   };
 }
 
@@ -2881,22 +2572,15 @@ function editAvailability(index) {
     }).filter(Boolean);
 
     const next = {
-      ...(isNew ? {} : row),
       role: document.getElementById("m_role").value.trim() || "General",
       name: document.getElementById("m_name").value.trim() || "Unnamed",
       slots: slots.length ? slots : []
     };
-    ensureRecordIdentity(next, "av");
-    if (isNew) {
-      state.availability.push(next);
-      queueMutation("availability", "upsert", next);
-    } else {
-      state.availability[index] = next;
-      queueMutation("availability", "upsert", next);
-    }
+    if (isNew) state.availability.push(next);
+    else state.availability[index] = next;
+    markTouched("availability", keyAvailability(next));
     closeModal();
-    refresh({ push: false });
-    pushToSheet(false);
+    refresh({ push: true });
   };
 }
 
@@ -2937,23 +2621,16 @@ function editScheduled(index) {
   document.getElementById("m_save").onclick = () => {
     const d = fromInputs(document.getElementById("m_date").value, document.getElementById("m_time").value);
     const next = {
-      ...(isNew ? {} : row),
       candidate: document.getElementById("m_c").value.trim() || "Candidate",
       recruiter: document.getElementById("m_r").value.trim(),
       when: d ? formatInterviewWhen(d) : "",
       status: document.getElementById("m_s").value
     };
-    ensureRecordIdentity(next, "sc");
-    if (isNew) {
-      state.scheduled.push(next);
-      queueMutation("scheduled", "upsert", next);
-    } else {
-      state.scheduled[index] = next;
-      queueMutation("scheduled", "upsert", next);
-    }
+    if (isNew) state.scheduled.push(next);
+    else state.scheduled[index] = next;
+    markTouched("scheduled", keyScheduled(next));
     closeModal();
-    refresh({ push: false });
-    pushToSheet(false);
+    refresh({ push: true });
   };
 }
 
@@ -2988,72 +2665,25 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 function copyAvailabilityRow(index) {
   const c = state.availability[index];
   if (!c) return;
-
-  const slots = (c.slots || [])
-    .map(s => String(s || "").replace(/[\r\n]+/g, " ").trim())
-    .filter(Boolean);
-
-  const role = String(c.role || "General").replace(/[\r\n]+/g, " ").trim() || "General";
-  const candidate = String(c.name || "").replace(/[\r\n]+/g, " ").trim();
+  const slots = (c.slots || []).map(s => String(s || "").trim()).filter(Boolean);
   const headers = ["Candidate"].concat(slots.map((_, i) => "Slot " + (i + 1)));
-  const values = [candidate].concat(slots);
-
-  // Plain-text fallback. Keep the role on its own line, followed by the
-  // same tabular data so Sheets/Excel still get proper rows and columns.
-  const tsv = role + "\n" + headers.join("\t") + "\n" + values.join("\t");
-
-  // Rich clipboard HTML. This intentionally uses TWO tables, matching the
-  // UI/reference image: a small role heading table above the candidate table.
-  const escHtml = value => String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-
-  const border = "border:1px solid #111;";
-  const cell = "padding:4px 6px;border:1px solid #111;font-family:Arial,sans-serif;font-size:14px;line-height:1.2;white-space:nowrap;";
-  const headCell = cell + "font-weight:700;text-align:center;";
-  const roleHtml = `
-    <table style="border-collapse:collapse;margin:0 0 0 0;">
-      <tbody>
-        <tr><td style="${cell}font-weight:700;text-align:left;">${escHtml(role)}</td></tr>
-      </tbody>
-    </table>`;
-
-  const headerHtml = headers.map(h => `<th style="${headCell}">${escHtml(h)}</th>`).join("");
-  const valueHtml = values.map(v => `<td style="${cell}">${escHtml(v)}</td>`).join("");
-  const candidateHtml = `
-    <table style="border-collapse:collapse;margin:0;">
-      <thead><tr>${headerHtml}</tr></thead>
-      <tbody><tr>${valueHtml}</tr></tbody>
-    </table>`;
-
-  const html = `<div style="font-family:Arial,sans-serif;">${roleHtml}${candidateHtml}</div>`;
-
-  const write = async () => {
-    if (navigator.clipboard && window.ClipboardItem) {
-      const item = new ClipboardItem({
-        "text/html": new Blob([html], { type: "text/html" }),
-        "text/plain": new Blob([tsv], { type: "text/plain" })
-      });
-      await navigator.clipboard.write([item]);
-      return;
+  const values = [c.name || ""].concat(slots);
+  // TSV pastes cleanly into Sheets / Excel as columns
+  const tsv = headers.join("\t") + "\n" + values.join("\t");
+  const write = () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(tsv);
     }
-
-    // Legacy fallback for browsers that do not support rich ClipboardItem.
     const ta = document.createElement("textarea");
     ta.value = tsv;
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
     document.body.appendChild(ta);
     ta.select();
     document.execCommand("copy");
     ta.remove();
+    return Promise.resolve();
   };
-
   write().then(() => {
-    toast("Copied " + role + " · " + (candidate || "candidate") + " · " + slots.length + " slot(s)", "content_copy");
+    toast("Copied " + (c.name || "candidate") + " · " + slots.length + " slot(s)", "content_copy");
   }).catch(() => toast("Copy failed", "error"));
 }
 
@@ -3066,15 +2696,10 @@ document.getElementById("availabilityMount").addEventListener("click", e => {
   if (del) {
     if (!isAdmin()) return;
     if (confirm("Remove this candidate?")) {
-      const idx = +del.dataset.delAv;
-      const row = state.availability[idx];
-      if (row) {
-        ensureRecordIdentity(row, "av");
-        queueMutation("availability", "delete", { ...row, deleted: true, deletedAt: new Date().toISOString() });
-        state.availability.splice(idx, 1);
-      }
-      refresh({ push: false });
-      pushToSheet(false);
+      const row = state.availability[+del.dataset.delAv];
+      if (row) markDeleted("availability", keyAvailability(row));
+      state.availability.splice(+del.dataset.delAv, 1);
+      refresh({ push: true });
     }
   }
 });
@@ -3085,15 +2710,10 @@ document.getElementById("schedList").addEventListener("click", e => {
   if (ed) editScheduled(+ed.dataset.editSc);
   if (del) {
     if (!isAdmin()) return;
-    const idx = +del.dataset.delSc;
-    const row = state.scheduled[idx];
-    if (row) {
-      ensureRecordIdentity(row, "sc");
-      queueMutation("scheduled", "delete", { ...row, deleted: true, deletedAt: new Date().toISOString() });
-      state.scheduled.splice(idx, 1);
-    }
-    refresh({ push: false });
-    pushToSheet(false);
+    const row = state.scheduled[+del.dataset.delSc];
+    if (row) markDeleted("scheduled", keyScheduled(row));
+    state.scheduled.splice(+del.dataset.delSc, 1);
+    refresh({ push: true });
   }
 });
 
@@ -3111,15 +2731,10 @@ document.getElementById("subTableWrap").addEventListener("click", e => {
   if (del) {
     if (!isAdmin()) return;
     if (confirm("Delete this submission row?")) {
-      const idx = +del.dataset.delSub;
-      const row = state.submissions[idx];
-      if (row) {
-        ensureRecordIdentity(row, "sub");
-        queueMutation("submissions", "delete", { ...row, deleted: true, deletedAt: new Date().toISOString() });
-        state.submissions.splice(idx, 1);
-      }
-      refresh({ push: false });
-      pushToSheet(false);
+      const row = state.submissions[+del.dataset.delSub];
+      if (row) markDeleted("submissions", keySubmission(row));
+      state.submissions.splice(+del.dataset.delSub, 1);
+      refresh({ push: true });
     }
   }
 });
@@ -3260,446 +2875,7 @@ if (cfgAddBtn) cfgAddBtn.onclick = async () => {
   }
 };
 
-/* ---------- Admin JSON backup / restore ---------- */
-function jsonSafeClone(value) {
-  return JSON.parse(JSON.stringify(value ?? null));
-}
-
-function stableJson(value) {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return "[" + value.map(stableJson).join(",") + "]";
-  return "{" + Object.keys(value).sort().map(k => JSON.stringify(k) + ":" + stableJson(value[k])).join(",") + "}";
-}
-
-function recordsEqual(a, b) {
-  return stableJson(a) === stableJson(b);
-}
-
-function cloneWithoutSheetOrder(row) {
-  const copy = jsonSafeClone(row || {});
-  if (copy && typeof copy === "object") delete copy.__sheetOrder;
-  return copy;
-}
-
-function mergeImportedRecords(existing, incoming, keyFn) {
-  const current = Array.isArray(existing) ? existing.map(cloneWithoutSheetOrder) : [];
-  const imported = Array.isArray(incoming) ? incoming.map(cloneWithoutSheetOrder) : [];
-  let added = 0;
-  let updated = 0;
-  let skipped = 0;
-
-  // Exact duplicates are skipped. If the same logical key exists but the
-  // contents differ, replace that record with the imported version.
-  imported.forEach((item, importIndex) => {
-    const exactIndex = current.findIndex(existingItem => recordsEqual(existingItem, item));
-    if (exactIndex !== -1) {
-      skipped++;
-      return;
-    }
-
-    const importedKey = keyFn(item, importIndex);
-    const keyIndex = current.findIndex((existingItem, existingIndex) =>
-      keyFn(existingItem, existingIndex) === importedKey
-    );
-
-    if (keyIndex !== -1) {
-      current[keyIndex] = item;
-      updated++;
-    } else {
-      current.push(item);
-      added++;
-    }
-  });
-
-  return { data: current, added, updated, skipped };
-}
-
-async function downloadAdminJson() {
-  if (!isAdmin()) {
-    toast("Admin access required", "lock");
-    return;
-  }
-
-  try {
-    // Refresh from the latest Sheet copy before creating the backup when possible.
-    if (sheetUrl() && !sheetEndpointDead) await pullFromSheet(true);
-
-    const backup = {
-      format: "Sparix Global Talent Dashboard Backup",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data: {
-        availability: jsonSafeClone(state.availability || []),
-        scheduled: jsonSafeClone(state.scheduled || []),
-        submissions: jsonSafeClone(state.submissions || [])
-      },
-      config: jsonSafeClone(config || DEFAULT_CONFIG)
-    };
-
-    // __sheetOrder is a local display helper and must never become part of a backup.
-    (backup.data.submissions || []).forEach(row => delete row.__sheetOrder);
-
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const now = new Date();
-    const stamp = now.getFullYear() +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      String(now.getDate()).padStart(2, "0") + "_" +
-      String(now.getHours()).padStart(2, "0") +
-      String(now.getMinutes()).padStart(2, "0");
-    a.href = url;
-    a.download = "Sparix_Global_Talent_Backup_" + stamp + ".json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("JSON backup downloaded · complete dashboard data", "download_done");
-  } catch (e) {
-    console.error("JSON export", e);
-    toast("JSON download failed", "error");
-  }
-}
-
-async function importAdminJson(file) {
-  if (!isAdmin()) {
-    toast("Admin access required", "lock");
-    return;
-  }
-  if (!file) return;
-
-  const btn = document.getElementById("uploadJsonBtn");
-  const oldHtml = btn ? btn.innerHTML : "";
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = icon("hourglass_top") + " Importing…";
-  }
-
-  try {
-    const text = await file.text();
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (_) {
-      throw new Error("The selected file is not valid JSON.");
-    }
-
-    // Accept our backup format or a plain {availability, scheduled, submissions} JSON.
-    const source = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
-    if (!source || typeof source !== "object") throw new Error("Invalid backup structure.");
-
-    const incomingAvailability = Array.isArray(source.availability) ? source.availability : null;
-    const incomingScheduled = Array.isArray(source.scheduled) ? source.scheduled : null;
-    const incomingSubmissions = Array.isArray(source.submissions) ? source.submissions : null;
-    if (!incomingAvailability && !incomingScheduled && !incomingSubmissions) {
-      throw new Error("No Availability, Scheduled or Submissions data found in this JSON file.");
-    }
-
-    // Pull latest cloud data first, so an import is merged with the current Sheet copy.
-    if (sheetUrl() && !sheetEndpointDead) {
-      await pullFromSheet(true);
-    }
-
-    const avResult = incomingAvailability
-      ? mergeImportedRecords(state.availability, incomingAvailability, keyAvailability)
-      : { data: state.availability, added: 0, updated: 0, skipped: 0 };
-    const scResult = incomingScheduled
-      ? mergeImportedRecords(state.scheduled, incomingScheduled, keyScheduled)
-      : { data: state.scheduled, added: 0, updated: 0, skipped: 0 };
-    const subResult = incomingSubmissions
-      ? mergeImportedRecords(state.submissions, incomingSubmissions, keySubmission)
-      : { data: state.submissions, added: 0, updated: 0, skipped: 0 };
-
-    const totalAdded = avResult.added + scResult.added + subResult.added;
-    const totalUpdated = avResult.updated + scResult.updated + subResult.updated;
-    const totalSkipped = avResult.skipped + scResult.skipped + subResult.skipped;
-    const hasDataChanges = totalAdded > 0 || totalUpdated > 0;
-
-    state.availability = avResult.data;
-    state.scheduled = scResult.data;
-    state.submissions = subResult.data;
-
-    // Merge backup config lists without deleting existing configuration.
-    let configChanged = false;
-    const incomingConfig = parsed && parsed.config && typeof parsed.config === "object" ? parsed.config : null;
-    if (incomingConfig) {
-      ["recruiters", "bdms", "statuses"].forEach(key => {
-        if (!Array.isArray(incomingConfig[key])) return;
-        const existing = Array.isArray(config[key]) ? config[key].map(String) : [];
-        incomingConfig[key].map(v => String(v).trim()).filter(Boolean).forEach(v => {
-          if (!existing.some(x => x.toLowerCase() === v.toLowerCase())) {
-            existing.push(v);
-            configChanged = true;
-          }
-        });
-        config[key] = existing;
-      });
-      persistConfig();
-      fillConfigTextareas();
-    }
-
-    if (!hasDataChanges && !configChanged) {
-      persist();
-      renderAvailability();
-      renderScheduled();
-      renderSubmissions();
-      renderUpcomingInto("overviewUpcoming");
-      renderUpcomingInto("alertsList");
-      renderStats();
-      toast("No new data found · exact duplicates skipped", "check_circle");
-      return;
-    }
-
-    persist();
-    renderAvailability();
-    renderScheduled();
-    renderSubmissions();
-    renderUpcomingInto("overviewUpcoming");
-    renderUpcomingInto("alertsList");
-    renderStats();
-    scheduleReminders();
-
-    // Push imported changes as individual mutations; never overwrite the entire Sheet snapshot.
-    avResult.data.forEach(r => {
-      ensureRecordIdentity(r, "av");
-      queueMutation("availability", "upsert", r);
-    });
-    scResult.data.forEach(r => {
-      ensureRecordIdentity(r, "sc");
-      queueMutation("scheduled", "upsert", r);
-    });
-    subResult.data.forEach(r => {
-      ensureRecordIdentity(r, "sub");
-      queueMutation("submissions", "upsert", r);
-    });
-    dirty = true;
-    const pushed = await pushToSheet(false);
-    if (!pushed) throw new Error("Data merged locally, but the Google Sheet push failed.");
-
-    if (configChanged) {
-      const configSaved = await saveConfigToSheet();
-      if (!configSaved) {
-        toast("Data pushed · config kept locally — verify Config sheet", "warning");
-      }
-    }
-
-    const parts = [];
-    if (totalAdded) parts.push(totalAdded + " new");
-    if (totalUpdated) parts.push(totalUpdated + " updated");
-    if (totalSkipped) parts.push(totalSkipped + " exact duplicate" + (totalSkipped === 1 ? "" : "s") + " skipped");
-    if (configChanged) parts.push("config merged");
-    toast("JSON import complete · " + parts.join(" · "), "cloud_done");
-  } catch (e) {
-    console.error("JSON import", e);
-    toast("JSON import failed: " + (e.message || "invalid file"), "error");
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = oldHtml;
-    }
-    const input = document.getElementById("uploadJsonInput");
-    if (input) input.value = "";
-  }
-}
-
-/* ---------- Admin Excel export ---------- */
-function loadXlsxLibrary() {
-  if (window.XLSX) return Promise.resolve(window.XLSX);
-  if (window._xlsxLoading) return window._xlsxLoading;
-
-  window._xlsxLoading = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
-    script.async = true;
-    script.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error("Excel library did not load"));
-    script.onerror = () => reject(new Error("Could not load Excel export library"));
-    document.head.appendChild(script);
-  });
-  return window._xlsxLoading;
-}
-
-function excelSafe(value) {
-  if (value === null || value === undefined) return "";
-  if (value instanceof Date) return value;
-  return String(value).replace(/[\r\n]+/g, " ").trim();
-}
-
-function excelDate(value) {
-  const s = excelSafe(value);
-  if (!s) return "";
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? s : d;
-}
-
-function setExcelWidths(XLSX, ws, widths) {
-  ws["!cols"] = widths.map(w => ({ wch: w }));
-}
-
-function addAutoFilter(ws, XLSX) {
-  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
-  ws["!autofilter"] = {
-    ref: XLSX.utils.encode_range({
-      s: { r: 0, c: range.s.c },
-      e: { r: range.e.r, c: range.e.c }
-    })
-  };
-}
-
-function buildExcelSheet(XLSX, headers, rows, widths) {
-  const ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
-  setExcelWidths(XLSX, ws, widths || headers.map(() => 18));
-  addAutoFilter(ws, XLSX);
-  return ws;
-}
-
-async function downloadAdminExcel() {
-  if (!isAdmin()) {
-    toast("Admin access required", "lock");
-    return;
-  }
-
-  const btn = document.getElementById("downloadExcelBtn");
-  const oldHtml = btn ? btn.innerHTML : "";
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = icon("hourglass_top") + " Preparing…";
-  }
-
-  try {
-    const XLSX = await loadXlsxLibrary();
-    const wb = XLSX.utils.book_new();
-
-    /* Submissions — export ALL submission records, ignoring dashboard filters. */
-    const submissionHeaders = [
-      "JPC", "Role", "Candidate", "Recruiter", "Submission Date",
-      "Status", "BDM", "Update 1", "Update 2", "Update 3"
-    ];
-    const submissionRows = (state.submissions || []).map(r => [
-      excelSafe(r.jpc), excelSafe(r.role), excelSafe(r.candidateName),
-      excelSafe(r.recruiterName), excelDate(r.submissionDate),
-      excelSafe(r.currentStatus), excelSafe(r.bdm), excelSafe(r.update1),
-      excelSafe(r.update2), excelSafe(r.update3)
-    ]);
-    const wsSub = buildExcelSheet(XLSX, submissionHeaders, submissionRows,
-      [16, 22, 28, 20, 20, 18, 20, 34, 34, 34]);
-    XLSX.utils.book_append_sheet(wb, wsSub, "Submissions");
-
-    /* Scheduled interviews — export every interview record. */
-    const interviewHeaders = [
-      "Candidate", "Recruiter", "Interview Date", "Interview Time",
-      "Status", "Role", "JPC", "BDM", "Notes"
-    ];
-    const interviewRows = (state.scheduled || []).map(r => {
-      const ts = parseWhen(r.when);
-      return [
-        excelSafe(r.candidate),
-        excelSafe(r.recruiter),
-        ts ? new Date(ts.getFullYear(), ts.getMonth(), ts.getDate()) : "",
-        ts ? ts.toTimeString().slice(0, 5) : excelSafe(r.time),
-        excelSafe(r.status || "Pending"),
-        excelSafe(r.role),
-        excelSafe(r.jpc),
-        excelSafe(r.bdm),
-        excelSafe(r.notes)
-      ];
-    });
-    const wsInt = buildExcelSheet(XLSX, interviewHeaders, interviewRows,
-      [28, 20, 18, 18, 18, 22, 16, 20, 36]);
-    XLSX.utils.book_append_sheet(wb, wsInt, "Interviews");
-
-    /* Availability / interview slots. Each slot gets its own column. */
-    const availability = state.availability || [];
-    const maxSlots = availability.reduce((max, r) => Math.max(max, (r.slots || []).length), 0);
-    const slotHeaders = ["Role", "Candidate"].concat(
-      Array.from({ length: maxSlots }, (_, i) => "Slot " + (i + 1))
-    );
-    const slotRows = availability.map(r => [
-      excelSafe(r.role || "General"),
-      excelSafe(r.name),
-      ...(Array.from({ length: maxSlots }, (_, i) => excelSafe((r.slots || [])[i])))
-    ]);
-    const wsSlots = buildExcelSheet(XLSX, slotHeaders, slotRows,
-      [22, 28].concat(Array.from({ length: maxSlots }, () => 24)));
-    XLSX.utils.book_append_sheet(wb, wsSlots, "Availability");
-
-    // Keep all three sheets readable and ready for filtering in Excel.
-    [wsSub, wsInt, wsSlots].forEach(ws => {
-      if (ws["!ref"]) {
-        const rg = XLSX.utils.decode_range(ws["!ref"]);
-        ws["!freeze"] = { xSplit: 0, ySplit: 1 };
-        ws["!autofilter"] = { ref: XLSX.utils.encode_range(rg) };
-
-        // Professional header row styling when the browser-side Excel library supports it.
-        for (let c = rg.s.c; c <= rg.e.c; c++) {
-          const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
-          if (cell) {
-            cell.s = {
-              font: { bold: true, color: { rgb: "FFFFFF" } },
-              fill: { fgColor: { rgb: "1F2937" } },
-              alignment: { horizontal: "center", vertical: "center" },
-              border: {
-                top: { style: "thin", color: { rgb: "D1D5DB" } },
-                bottom: { style: "thin", color: { rgb: "D1D5DB" } },
-                left: { style: "thin", color: { rgb: "D1D5DB" } },
-                right: { style: "thin", color: { rgb: "D1D5DB" } }
-              }
-            };
-          }
-        }
-        if (ws["!rows"] === undefined) ws["!rows"] = [];
-        ws["!rows"][0] = { hpt: 22 };
-      }
-    });
-
-    // Format date columns consistently in the exported workbook.
-    const formatColumn = (ws, col, format) => {
-      const rg = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : null;
-      if (!rg) return;
-      for (let r = 1; r <= rg.e.r; r++) {
-        const cell = ws[XLSX.utils.encode_cell({ r, c: col })];
-        if (cell && cell.v instanceof Date) cell.z = format;
-      }
-    };
-    formatColumn(wsSub, 4, "dd-mmm-yyyy");
-    formatColumn(wsInt, 2, "dd-mmm-yyyy");
-
-    const now = new Date();
-    const stamp = now.getFullYear() +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      String(now.getDate()).padStart(2, "0") + "_" +
-      String(now.getHours()).padStart(2, "0") +
-      String(now.getMinutes()).padStart(2, "0");
-
-    XLSX.writeFile(wb, "Sparix_Global_Talent_Data_" + stamp + ".xlsx");
-    toast("Excel downloaded · 3 sheets with filters", "download_done");
-  } catch (e) {
-    console.error("Excel export", e);
-    toast("Excel download failed — check your internet connection", "error");
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = oldHtml;
-    }
-  }
-}
-
 document.getElementById("pullBtn").onclick = pullFromSheet;
-const downloadExcelBtn = document.getElementById("downloadExcelBtn");
-if (downloadExcelBtn) downloadExcelBtn.onclick = downloadAdminExcel;
-const downloadJsonBtn = document.getElementById("downloadJsonBtn");
-if (downloadJsonBtn) downloadJsonBtn.onclick = downloadAdminJson;
-const uploadJsonBtn = document.getElementById("uploadJsonBtn");
-const uploadJsonInput = document.getElementById("uploadJsonInput");
-if (uploadJsonBtn && uploadJsonInput) {
-  uploadJsonBtn.onclick = () => {
-    if (!isAdmin()) { toast("Admin access required", "lock"); return; }
-    uploadJsonInput.click();
-  };
-  uploadJsonInput.onchange = () => {
-    const file = uploadJsonInput.files && uploadJsonInput.files[0];
-    if (file) importAdminJson(file);
-  };
-}
 document.getElementById("enableNotifyBtn").onclick = enableAlerts;
 document.getElementById("enableNotifyBtn2").onclick = enableAlerts;
 document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep played", "volume_up"); };
@@ -3707,15 +2883,14 @@ document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep
 document.getElementById("sheetUrl").value = sheetUrl();
 document.getElementById("remindMins").value = remindMins();
 document.getElementById("saveSettingsBtn").onclick = () => {
-  sheetEndpointDead = false;
   const url = document.getElementById("sheetUrl").value.trim();
   localStorage.setItem("emb_remind", String(parseInt(document.getElementById("remindMins").value, 10) || 10));
   if (!url) {
     // Clear portal local data only — sheet is not touched
     localStorage.removeItem("emb_sheet_url");
     state = { availability: [], scheduled: [], submissions: [] };
+    clearSyncMarks();
     persist();
-    dirty = false;
     refresh();
     setSyncUI(false, "Not connected");
     toast("URL cleared — local portal data removed (sheet unchanged)", "link_off");
