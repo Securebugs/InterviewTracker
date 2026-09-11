@@ -9,23 +9,31 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..700,0..1,-50..200&display=swap">
 <style>
   :root {
-    --bg: #f3efe8;
+    --bg: #f0f4ff;
     --surface: #ffffff;
-    --surface2: #faf8f4;
-    --border: #e5dfd4;
-    --text: #1c1917;
-    --muted: #78716c;
-    --accent: #1c1917;
-    --teal: #0f766e;
+    --surface2: #f8fafc;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #4f46e5;
+    --teal: #0d9488;
     --teal-soft: #ccfbf1;
-    --amber: #b45309;
+    --amber: #d97706;
     --amber-soft: #fef3c7;
-    --rose: #be123c;
+    --rose: #e11d48;
     --rose-soft: #ffe4e6;
-    --blue: #1d4ed8;
+    --blue: #2563eb;
     --blue-soft: #dbeafe;
+    --violet: #7c3aed;
+    --violet-soft: #ede9fe;
+    --green: #16a34a;
+    --green-soft: #dcfce7;
+    --pink: #db2777;
+    --pink-soft: #fce7f3;
+    --cyan: #0891b2;
+    --cyan-soft: #cffafe;
     --radius: 16px;
-    --shadow: 0 1px 2px rgba(28,25,23,.04), 0 8px 24px rgba(28,25,23,.06);
+    --shadow: 0 1px 3px rgba(15,23,42,.06), 0 10px 28px rgba(79,70,229,.08);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -70,7 +78,7 @@
   }
 
   .sidebar {
-    background: #1c1917;
+    background: linear-gradient(180deg, #312e81 0%, #1e1b4b 45%, #0f172a 100%);
     color: #fafaf9;
     padding: 28px 18px;
     display: flex;
@@ -603,11 +611,95 @@
     letter-spacing: -0.03em; color: var(--text);
   }
   .kpi .k-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .kpi.accent-dark { background: #1c1917; border-color: #1c1917; }
-  .kpi.accent-dark .k-label, .kpi.accent-dark .k-sub { color: #a8a29e; }
-  .kpi.accent-dark .k-value { color: #fafaf9; }
-  .kpi.accent-stone { background: #e7e5e4; border-color: #d6d3d1; }
-  .kpi.accent-warm { background: #f5f0e8; border-color: #e8e0d4; }
+  .kpi {
+    position: relative;
+    overflow: hidden;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .kpi:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(79,70,229,.12); }
+  .kpi.accent-dark {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    border-color: transparent;
+  }
+  .kpi.accent-dark .k-label, .kpi.accent-dark .k-sub { color: rgba(255,255,255,.78); }
+  .kpi.accent-dark .k-value { color: #fff; }
+  .kpi.accent-stone {
+    background: linear-gradient(135deg, #ecfeff 0%, #e0f2fe 100%);
+    border-color: #a5f3fc;
+  }
+  .kpi.accent-warm {
+    background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+    border-color: #fde68a;
+  }
+  .kpi.accent-teal {
+    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+    border-color: #99f6e4;
+  }
+  .kpi.accent-rose {
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+    border-color: #fecdd3;
+  }
+  .kpi.accent-green {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-color: #bbf7d0;
+  }
+  .kpi.accent-violet {
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border-color: #ddd6fe;
+  }
+
+  /* Bootstrap-like pills */
+  .pill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pill-rec { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .pill-bdm { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .pill-jpc { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; font-family: ui-monospace, monospace; }
+  .pill-cand { background: #fce7f3; color: #be185d; border: 1px solid #fbcfe8; }
+  .pill-role { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; max-width: 200px; }
+
+  .status-chip.submitted { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .status-chip.screening { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .status-chip.interview { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .status-chip.offered { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .status-chip.rejected { background: #ffe4e6; color: #be123c; border: 1px solid #fecdd3; }
+  .status-chip.onhold { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .status-chip.other { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+  .s-fill.c1 { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .s-fill.c2 { background: linear-gradient(90deg, #06b6d4, #3b82f6); }
+  .s-fill.c3 { background: linear-gradient(90deg, #f59e0b, #f97316); }
+  .s-fill.c4 { background: linear-gradient(90deg, #10b981, #14b8a6); }
+  .s-fill.c5 { background: linear-gradient(90deg, #ec4899, #f43f5e); }
+  .s-fill.c6 { background: linear-gradient(90deg, #8b5cf6, #a855f7); }
+
+  .dash-card {
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+  .dash-card h3 .material-symbols-outlined { color: #4f46e5; }
+
+  .btn-dark {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border-color: transparent;
+  }
+  .btn-dark:hover { opacity: .95; background: linear-gradient(135deg, #4338ca, #6d28d9); }
+
+  .nav-btn.active {
+    background: linear-gradient(90deg, rgba(99,102,241,.35), rgba(168,85,247,.2));
+    color: #fff;
+  }
 
   .dash-row {
     display: grid;
@@ -710,7 +802,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    background: #1c1917;
+    background: linear-gradient(90deg, #312e81, #1e1b4b);
     color: #fafaf9;
     position: sticky;
     top: 0;
@@ -1131,7 +1223,7 @@ const USER_KEY = "emb_user_v1";
  * Example: "https://script.google.com/macros/s/AKfycbx.../exec"
  * Deploy script as: Execute as Me · Who has access: Anyone
  */
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbyF5CSuWLH_BpQ9Cr2Uwi8oN141ZnKE9hB2w50E7dxmxRYeRJTkdx2oHdgAAEhWkdvL/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbw_nJDniXOIEzGjJ5VohkimZcu7ztX2dSGG5axT7MnNB6Z0_Lj9yMR-_p0gEWIHbhE/exec";
 
 const DEFAULT = { availability: [], scheduled: [], submissions: [] };
 const DEFAULT_CONFIG = {
@@ -1528,7 +1620,7 @@ function renderUpcomingInto(elId) {
 
 /* ---------- Submission analytics ---------- */
 const STATUS_ORDER = ["Submitted", "Screening", "Interview", "Offered", "Rejected", "On Hold"];
-const MONO = ["#1c1917", "#44403c", "#57534e", "#78716c", "#a8a29e", "#d6d3d1", "#b45309", "#292524"];
+const CHART_COLORS = ["#6366f1","#06b6d4","#f59e0b","#10b981","#ec4899","#8b5cf6","#3b82f6","#f43f5e","#14b8a6","#a855f7"];
 
 function parseSubDate(str) {
   if (!str) return null;
@@ -1656,15 +1748,15 @@ function renderStats() {
 
   const kpis = [
     { label: "Total candidates", value: a.total, sub: "All submissions", icon: "group", cls: "accent-dark" },
-    { label: "Today's submissions", value: a.todayCount, sub: "Submitted today", icon: "today", cls: "" },
+    { label: "Today's submissions", value: a.todayCount, sub: "Submitted today", icon: "today", cls: "accent-teal" },
     { label: "This week", value: a.weekCount, sub: "Since Sunday", icon: "date_range", cls: "accent-warm" },
     { label: "This month", value: a.monthCount || 0, sub: "Calendar month", icon: "calendar_month", cls: "accent-stone" },
-    { label: "Recruiters", value: a.recruiterCount, sub: "Active on tracker", icon: "badge", cls: "" },
-    { label: "JPCs worked", value: a.jpcCount, sub: "Unique job codes", icon: "work", cls: "" },
+    { label: "Recruiters", value: a.recruiterCount, sub: "Active on tracker", icon: "badge", cls: "accent-violet" },
+    { label: "JPCs worked", value: a.jpcCount, sub: "Unique job codes", icon: "work", cls: "accent-green" },
     { label: "Next interview", value: nextLabel, sub: nextSub, icon: "event_upcoming", cls: "accent-dark", small: true },
-    { label: "Upcoming count", value: upcoming.length, sub: "Interviews ahead", icon: "schedule", cls: "" },
+    { label: "Upcoming count", value: upcoming.length, sub: "Interviews ahead", icon: "schedule", cls: "accent-rose" },
     { label: "Pending update", value: a.pendingUpdate, sub: "No Update 1 yet", icon: "pending_actions", cls: "accent-warm" },
-    { label: "Interview conversion", value: a.conversion + "%", sub: a.interviewish + " in pipeline", icon: "moving", cls: "accent-dark" }
+    { label: "Interview conversion", value: a.conversion + "%", sub: a.interviewish + " in pipeline", icon: "moving", cls: "accent-violet" }
   ];
   const grid = document.getElementById("kpiGrid");
   if (grid) {
@@ -1680,12 +1772,12 @@ function renderStats() {
   const statusSegs = STATUS_ORDER.map((name, i) => ({
     name,
     value: a.statusCount[name] || 0,
-    color: MONO[i % MONO.length]
+    color: CHART_COLORS[i % CHART_COLORS.length]
   }));
   // include any other statuses
   Object.keys(a.statusCount).forEach((name, i) => {
     if (!STATUS_ORDER.includes(name) && a.statusCount[name]) {
-      statusSegs.push({ name, value: a.statusCount[name], color: MONO[(STATUS_ORDER.length + i) % MONO.length] });
+      statusSegs.push({ name, value: a.statusCount[name], color: CHART_COLORS[(STATUS_ORDER.length + i) % CHART_COLORS.length] });
     }
   });
 
@@ -2320,9 +2412,83 @@ function statusChip(status) {
   let cls = "other";
   if (s.includes("submit")) cls = "submitted";
   else if (s.includes("screen")) cls = "screening";
+  else if (s.includes("interview")) cls = "interview";
+  else if (s.includes("offer")) cls = "offered";
   else if (s.includes("hold")) cls = "onhold";
   else if (s.includes("reject")) cls = "rejected";
   return `<span class="status-chip ${cls}">${esc(status || "—")}</span>`;
+}
+
+/* Large palette so many recruiters get distinct colors */
+const PILL_PALETTE = [
+  { bg: "#dbeafe", fg: "#1e40af", bd: "#93c5fd" },
+  { bg: "#ede9fe", fg: "#5b21b6", bd: "#c4b5fd" },
+  { bg: "#dcfce7", fg: "#166534", bd: "#86efac" },
+  { bg: "#fef3c7", fg: "#92400e", bd: "#fcd34d" },
+  { bg: "#fce7f3", fg: "#9d174d", bd: "#f9a8d4" },
+  { bg: "#cffafe", fg: "#155e75", bd: "#67e8f9" },
+  { bg: "#ffedd5", fg: "#9a3412", bd: "#fdba74" },
+  { bg: "#e0e7ff", fg: "#3730a3", bd: "#a5b4fc" },
+  { bg: "#fee2e2", fg: "#991b1b", bd: "#fca5a5" },
+  { bg: "#ecfdf5", fg: "#065f46", bd: "#6ee7b7" },
+  { bg: "#f3e8ff", fg: "#6b21a8", bd: "#d8b4fe" },
+  { bg: "#e0f2fe", fg: "#075985", bd: "#7dd3fc" },
+  { bg: "#fef9c3", fg: "#854d0e", bd: "#fde047" },
+  { bg: "#fce7f3", fg: "#be185d", bd: "#fbcfe8" },
+  { bg: "#ccfbf1", fg: "#115e59", bd: "#5eead4" },
+  { bg: "#e7e5e4", fg: "#44403c", bd: "#a8a29e" },
+  { bg: "#dbeafe", fg: "#1d4ed8", bd: "#60a5fa" },
+  { bg: "#fae8ff", fg: "#86198f", bd: "#e879f9" },
+  { bg: "#d1fae5", fg: "#047857", bd: "#34d399" },
+  { bg: "#ffe4e6", fg: "#9f1239", bd: "#fb7185" },
+  { bg: "#e0f2fe", fg: "#0284c7", bd: "#38bdf8" },
+  { bg: "#fef3c7", fg: "#a16207", bd: "#facc15" },
+  { bg: "#ede9fe", fg: "#7c3aed", bd: "#a78bfa" },
+  { bg: "#cffafe", fg: "#0e7490", bd: "#22d3ee" },
+  { bg: "#ffedd5", fg: "#c2410c", bd: "#fb923c" },
+  { bg: "#f0fdf4", fg: "#15803d", bd: "#4ade80" },
+  { bg: "#fdf4ff", fg: "#a21caf", bd: "#e879f9" },
+  { bg: "#f1f5f9", fg: "#334155", bd: "#94a3b8" },
+  { bg: "#eef2ff", fg: "#4338ca", bd: "#818cf8" },
+  { bg: "#fff7ed", fg: "#c2410c", bd: "#fdba74" }
+];
+
+/** Better distribution across palette (reduces collisions for similar names) */
+function hashName(str) {
+  const s = String(str || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!s) return 0;
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // mix bits
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+function colorForName(name) {
+  return PILL_PALETTE[hashName(name) % PILL_PALETTE.length];
+}
+
+function namePill(text, kind, colorSource) {
+  if (!text || !String(text).trim()) {
+    return `<span class="pill-tag" style="opacity:.45;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0">—</span>`;
+  }
+  // JPC stays neutral mono style
+  if (kind === "jpc") {
+    return `<span class="pill-tag pill-jpc" title="${esc(text)}">${esc(text)}</span>`;
+  }
+  // Role is plain text (no pill)
+  if (kind === "role") return esc(text);
+
+  // Recruiter / BDM: color from own name
+  // Candidate: color from recruiter (colorSource)
+  const key = (kind === "cand" && colorSource) ? colorSource : text;
+  const c = colorForName(key);
+  return `<span class="pill-tag" title="${esc(text)}" style="background:${c.bg};color:${c.fg};border:1px solid ${c.bd}">${esc(text)}</span>`;
 }
 
 
@@ -2426,13 +2592,13 @@ function renderSubmissions() {
       ${rows.map((r) => {
         const i = state.submissions.indexOf(r);
         return `<tr>
-          <td class="jpc">${esc(r.jpc)}</td>
+          <td class="jpc">${namePill(r.jpc, "jpc")}</td>
           <td class="role-cell">${esc(r.role)}</td>
-          <td><strong>${esc(r.candidateName)}</strong></td>
-          <td>${esc(r.recruiterName)}</td>
+          <td>${namePill(r.candidateName, "cand", r.recruiterName)}</td>
+          <td>${namePill(r.recruiterName, "rec")}</td>
           <td style="white-space:nowrap">${esc(r.submissionDate)}</td>
           <td>${statusChip(r.currentStatus)}</td>
-          <td>${esc(r.bdm)}</td>
+          <td>${namePill(r.bdm, "bdm")}</td>
           <td class="update-cell">${esc(r.update1)}</td>
           <td class="update-cell">${esc(r.update2)}</td>
           <td class="update-cell">${esc(r.update3)}</td>
@@ -2711,14 +2877,52 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 function copyAvailabilityRow(index) {
   const c = state.availability[index];
   if (!c) return;
+  const role = String(c.role || "General").trim();
   const slots = (c.slots || []).map(s => String(s || "").trim()).filter(Boolean);
+  const colCount = 1 + Math.max(slots.length, 1);
+
+  // Plain TSV fallback (Excel / Sheets)
   const headers = ["Candidate"].concat(slots.map((_, i) => "Slot " + (i + 1)));
   const values = [c.name || ""].concat(slots);
-  // TSV pastes cleanly into Sheets / Excel as columns
-  const tsv = headers.join("\t") + "\n" + values.join("\t");
-  const write = () => {
+  const tsv = role + "\n" + headers.join("\t") + "\n" + values.join("\t");
+
+  // HTML table matching the role banner + grid (pastes into Docs / Word / Gmail / Sheets)
+  const slotHeads = slots.map((_, i) =>
+    `<th style="border:1px solid #000;padding:6px 10px;background:#f3f4f6;font-weight:700;text-align:left">Slot ${i + 1}</th>`
+  ).join("");
+  const slotCells = slots.map(s =>
+    `<td style="border:1px solid #000;padding:6px 10px;text-align:left">${esc(s)}</td>`
+  ).join("");
+  const html = `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;color:#111">
+  <tr>
+    <th colspan="${colCount}" style="border:1px solid #000;padding:8px 10px;background:#fff;font-weight:700;text-align:left">${esc(role)}</th>
+  </tr>
+  <tr>
+    <th style="border:1px solid #000;padding:6px 10px;background:#f3f4f6;font-weight:700;text-align:left">Candidate</th>
+    ${slotHeads || `<th style="border:1px solid #000;padding:6px 10px;background:#f3f4f6">Slot 1</th>`}
+  </tr>
+  <tr>
+    <td style="border:1px solid #000;padding:6px 10px;text-align:left">${esc(c.name || "")}</td>
+    ${slotCells || `<td style="border:1px solid #000;padding:6px 10px"></td>`}
+  </tr>
+</table>`;
+
+  const write = async () => {
+    if (navigator.clipboard && window.ClipboardItem) {
+      try {
+        const item = new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([tsv], { type: "text/plain" })
+        });
+        await navigator.clipboard.write([item]);
+        return;
+      } catch (e) {
+        console.warn("rich copy failed, plain fallback", e);
+      }
+    }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(tsv);
+      await navigator.clipboard.writeText(tsv);
+      return;
     }
     const ta = document.createElement("textarea");
     ta.value = tsv;
@@ -2726,10 +2930,10 @@ function copyAvailabilityRow(index) {
     ta.select();
     document.execCommand("copy");
     ta.remove();
-    return Promise.resolve();
   };
+
   write().then(() => {
-    toast("Copied " + (c.name || "candidate") + " · " + slots.length + " slot(s)", "content_copy");
+    toast("Copied table · " + role + " · " + (c.name || "candidate"), "content_copy");
   }).catch(() => toast("Copy failed", "error"));
 }
 
