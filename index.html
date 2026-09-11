@@ -1019,6 +1019,22 @@
         </div>
 
         <div class="admin-only" id="adminSettingsExtra">
+
+        <h3 style="margin-top:22px">Backup and export</h3>
+        <p>Download all Availability, Scheduled interviews, and Submission rows. Excel includes auto-filter on each column. JSON import only adds rows that are not already present.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+          <button type="button" class="btn btn-dark" id="downloadExcelBtn">
+            <span class="material-symbols-outlined">download</span> Download Excel
+          </button>
+          <button type="button" class="btn" id="downloadJsonBtn">
+            <span class="material-symbols-outlined">data_object</span> Download JSON
+          </button>
+          <button type="button" class="btn" id="uploadJsonBtn">
+            <span class="material-symbols-outlined">upload_file</span> Upload JSON
+          </button>
+          <input type="file" id="uploadJsonInput" accept=".json,application/json" style="display:none">
+        </div>
+
         <h3 style="margin-top:22px">Dropdown lists (Config sheet)</h3>
         <p>Hidden sheet <code>Config</code> columns: <strong>Type</strong> | <strong>Value</strong>. Add rows here or edit lists below, then save.</p>
         <div class="field" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
@@ -2905,7 +2921,244 @@ if (cfgAddBtn) cfgAddBtn.onclick = async () => {
   }
 };
 
+
+/* ---------- Admin Excel / JSON backup ---------- */
+function loadXlsxLibrary() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (window._xlsxLoading) return window._xlsxLoading;
+  window._xlsxLoading = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+    script.async = true;
+    script.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error("Excel library did not load"));
+    script.onerror = () => reject(new Error("Could not load Excel export library"));
+    document.head.appendChild(script);
+  });
+  return window._xlsxLoading;
+}
+
+function excelSafe(value) {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value;
+  return String(value).replace(/[\r\n]+/g, " ").trim();
+}
+
+function buildExcelSheet(XLSX, headers, rows, widths) {
+  const ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
+  ws["!cols"] = (widths || headers.map(() => 18)).map(w => ({ wch: w }));
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
+  ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+    if (cell) {
+      cell.s = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "1C1917" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+    }
+  }
+  return ws;
+}
+
+async function downloadAdminExcel() {
+  if (!isAdmin()) { toast("Admin access required", "lock"); return; }
+  const btn = document.getElementById("downloadExcelBtn");
+  const oldHtml = btn ? btn.innerHTML : "";
+  if (btn) { btn.disabled = true; btn.innerHTML = icon("hourglass_top") + " Preparing…"; }
+  try {
+    const XLSX = await loadXlsxLibrary();
+    const wb = XLSX.utils.book_new();
+
+    const subHeaders = ["JPC","Role","Candidate","Recruiter","Submission Date","Status","BDM","Update 1","Update 2","Update 3"];
+    const subRows = (state.submissions || []).map(r => [
+      excelSafe(r.jpc), excelSafe(r.role), excelSafe(r.candidateName), excelSafe(r.recruiterName),
+      excelSafe(r.submissionDate), excelSafe(r.currentStatus), excelSafe(r.bdm),
+      excelSafe(r.update1), excelSafe(r.update2), excelSafe(r.update3)
+    ]);
+    const wsSub = buildExcelSheet(XLSX, subHeaders, subRows, [14,22,24,18,16,14,16,28,28,28]);
+    XLSX.utils.book_append_sheet(wb, wsSub, "Submissions");
+
+    const intHeaders = ["Candidate","Recruiter","Interview Time","Status"];
+    const intRows = (state.scheduled || []).map(r => [
+      excelSafe(r.candidate), excelSafe(r.recruiter), excelSafe(r.when), excelSafe(r.status || "Pending")
+    ]);
+    const wsInt = buildExcelSheet(XLSX, intHeaders, intRows, [24,18,22,14]);
+    XLSX.utils.book_append_sheet(wb, wsInt, "Interviews");
+
+    const availability = state.availability || [];
+    const maxSlots = availability.reduce((m, r) => Math.max(m, (r.slots || []).length), 0);
+    const slotHeaders = ["Role","Candidate"].concat(Array.from({ length: maxSlots }, (_, i) => "Slot " + (i + 1)));
+    const slotRows = availability.map(r => [
+      excelSafe(r.role || "General"),
+      excelSafe(r.name),
+      ...Array.from({ length: maxSlots }, (_, i) => excelSafe((r.slots || [])[i]))
+    ]);
+    const wsSlots = buildExcelSheet(XLSX, slotHeaders, slotRows, [22, 24].concat(Array.from({ length: maxSlots }, () => 20)));
+    XLSX.utils.book_append_sheet(wb, wsSlots, "Availability");
+
+    const now = new Date();
+    const stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0")
+      + "_" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+    XLSX.writeFile(wb, "Sparix_Global_Talent_Data_" + stamp + ".xlsx");
+    toast("Excel downloaded · 3 sheets with filters", "download");
+  } catch (e) {
+    console.error(e);
+    toast("Excel download failed — check internet", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+  }
+}
+
+function downloadAdminJson() {
+  if (!isAdmin()) { toast("Admin access required", "lock"); return; }
+  try {
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      app: "Sparix Global Talent Interview Dashboard",
+      data: {
+        availability: state.availability || [],
+        scheduled: state.scheduled || [],
+        submissions: state.submissions || []
+      },
+      config: {
+        recruiters: config.recruiters || [],
+        bdms: config.bdms || [],
+        statuses: config.statuses || []
+      }
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const now = new Date();
+    const stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0")
+      + "_" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+    a.href = url;
+    a.download = "Sparix_Global_Talent_Backup_" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("JSON backup downloaded", "download");
+  } catch (e) {
+    console.error(e);
+    toast("JSON download failed", "error");
+  }
+}
+
+function recordsEqual(a, b, keyFn) {
+  return keyFn(a) === keyFn(b);
+}
+
+function mergeImportedRecords(existing, incoming, keyFn) {
+  const map = new Map();
+  (existing || []).forEach(r => map.set(keyFn(r), r));
+  let added = 0, skipped = 0;
+  (incoming || []).forEach(r => {
+    const k = keyFn(r);
+    if (!k || k === "||") { skipped++; return; }
+    if (map.has(k)) {
+      skipped++; // already exists — skip (do not overwrite)
+    } else {
+      map.set(k, r);
+      added++;
+      // mark for sheet sync
+      if (keyFn === keyAvailability) markTouched("availability", k);
+      else if (keyFn === keyScheduled) markTouched("scheduled", k);
+      else if (keyFn === keySubmission) markTouched("submissions", k);
+    }
+  });
+  return { data: Array.from(map.values()), added, skipped };
+}
+
+async function importAdminJson(file) {
+  if (!isAdmin()) { toast("Admin access required", "lock"); return; }
+  if (!file) return;
+  const btn = document.getElementById("uploadJsonBtn");
+  const oldHtml = btn ? btn.innerHTML : "";
+  if (btn) { btn.disabled = true; btn.innerHTML = icon("hourglass_top") + " Importing…"; }
+  try {
+    const text = await file.text();
+    let parsed;
+    try { parsed = JSON.parse(text); } catch (_) {
+      throw new Error("File is not valid JSON");
+    }
+    const source = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+    if (!source || typeof source !== "object") throw new Error("Invalid backup structure");
+
+    const incomingAv = Array.isArray(source.availability) ? source.availability : null;
+    const incomingSc = Array.isArray(source.scheduled) ? source.scheduled : null;
+    const incomingSub = Array.isArray(source.submissions) ? source.submissions : null;
+    if (!incomingAv && !incomingSc && !incomingSub) {
+      throw new Error("No Availability, Scheduled or Submissions found");
+    }
+
+    if (sheetUrl()) {
+      try { await pullFromSheet(true); } catch (_) {}
+    }
+
+    const av = incomingAv
+      ? mergeImportedRecords(state.availability, incomingAv, keyAvailability)
+      : { data: state.availability, added: 0, skipped: 0 };
+    const sc = incomingSc
+      ? mergeImportedRecords(state.scheduled, incomingSc, keyScheduled)
+      : { data: state.scheduled, added: 0, skipped: 0 };
+    const sub = incomingSub
+      ? mergeImportedRecords(state.submissions, incomingSub, keySubmission)
+      : { data: state.submissions, added: 0, skipped: 0 };
+
+    state.availability = av.data;
+    state.scheduled = sc.data;
+    state.submissions = sub.data;
+
+    const totalAdded = av.added + sc.added + sub.added;
+    const totalSkipped = av.skipped + sc.skipped + sub.skipped;
+
+    persist();
+    renderAvailability();
+    renderScheduled();
+    renderSubmissions();
+    renderStats();
+    scheduleReminders();
+
+    if (totalAdded > 0) {
+      dirty = true;
+      await pushToSheet(false);
+      toast("Import done · " + totalAdded + " new · " + totalSkipped + " skipped (already exist)", "cloud_done");
+    } else {
+      toast("No new rows · " + totalSkipped + " already exist (skipped)", "check");
+    }
+  } catch (e) {
+    console.error(e);
+    toast("JSON import failed: " + (e.message || "error"), "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+    const input = document.getElementById("uploadJsonInput");
+    if (input) input.value = "";
+  }
+}
+
+
+
 document.getElementById("pullBtn").onclick = pullFromSheet;
+const downloadExcelBtn = document.getElementById("downloadExcelBtn");
+if (downloadExcelBtn) downloadExcelBtn.onclick = downloadAdminExcel;
+const downloadJsonBtn = document.getElementById("downloadJsonBtn");
+if (downloadJsonBtn) downloadJsonBtn.onclick = downloadAdminJson;
+const uploadJsonBtn = document.getElementById("uploadJsonBtn");
+const uploadJsonInput = document.getElementById("uploadJsonInput");
+if (uploadJsonBtn && uploadJsonInput) {
+  uploadJsonBtn.onclick = () => {
+    if (!isAdmin()) { toast("Admin access required", "lock"); return; }
+    uploadJsonInput.click();
+  };
+  uploadJsonInput.onchange = () => {
+    const file = uploadJsonInput.files && uploadJsonInput.files[0];
+    if (file) importAdminJson(file);
+  };
+}
+
 document.getElementById("enableNotifyBtn").onclick = enableAlerts;
 document.getElementById("enableNotifyBtn2").onclick = enableAlerts;
 document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep played", "volume_up"); };
