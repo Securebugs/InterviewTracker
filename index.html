@@ -720,23 +720,50 @@
     margin-bottom: 10px;
     min-height: 0;
   }
+  /* Overview dashboard cards: fixed card height, fixed header, hidden scrollbar */
   .dash-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
     box-shadow: var(--shadow);
     padding: 12px 14px;
-    max-height: min(32vh, 280px);
-    overflow-y: auto;
-    min-height: 0;
+    height: 280px;
+    min-height: 280px;
+    max-height: 280px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .dash-card h3 {
+    flex: 0 0 auto;
     font-size: 13px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .04em; color: var(--muted); margin-bottom: 16px;
+    letter-spacing: .04em; color: var(--muted); margin: 0 0 16px;
     display: flex; align-items: center; gap: 8px;
   }
   .dash-card h3 .material-symbols-outlined { font-size: 18px; color: var(--text); }
-  #jpcBars { max-height: 360px; overflow-y: auto; padding-right: 4px; }
+
+  /* Everything below the card title can scroll, but the scrollbar is never visible. */
+  .dash-card > :not(h3) {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .dash-card > :not(h3)::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  #jpcBars {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  #jpcBars::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
   .status-list { display: flex; flex-direction: column; gap: 10px; }
   .status-row {
@@ -895,7 +922,7 @@
       max-width: none; width: 100%; min-width: 0;
     }
     .sub-table-wrap { max-height: calc(100vh - 220px); }
-    .dash-card { max-height: none; }
+    .dash-card { height: 280px; min-height: 280px; max-height: 280px; }
     .upcoming-grid { max-height: none; }
   }
   @media (max-width: 560px) {
