@@ -1243,7 +1243,7 @@ const USER_KEY = "emb_user_v1";
  * Example: "https://script.google.com/macros/s/AKfycbx.../exec"
  * Deploy script as: Execute as Me · Who has access: Anyone
  */
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxyS6AK5rDC8GLZebjeNBqp3GyBsiXi9V97QFJIL900oVjc2ry2r47m14Yeo1vImrPg/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbyF5CSuWLH_BpQ9Cr2Uwi8oN141ZnKE9hB2w50E7dxmxRYeRJTkdx2oHdgAAEhWkdvL/exec";
 
 const DEFAULT = { availability: [], scheduled: [], submissions: [] };
 const DEFAULT_CONFIG = {
@@ -2113,16 +2113,22 @@ async function postStateToSheet(payload) {
   } catch (_) {}
 }
 
+function recordsForTouched(kind, keyFn) {
+  const keys = touched[kind] || new Set();
+  const rows = state[kind] || [];
+  return rows.filter(r => keys.has(keyFn(r)));
+}
+
 function buildMergePayload() {
-  // Full local lists + explicit deletes. Server merges (keeps other users' rows).
+  // Send only rows changed on this device. Never send a stale full snapshot.
   return JSON.stringify({
     mode: "merge",
     action: "upsert",
-    availability: state.availability || [],
+    availability: recordsForTouched("availability", keyAvailability),
     availabilityDeleted: [...deleted.availability],
-    scheduled: state.scheduled || [],
+    scheduled: recordsForTouched("scheduled", keyScheduled),
     scheduledDeleted: [...deleted.scheduled],
-    submissions: state.submissions || [],
+    submissions: recordsForTouched("submissions", keySubmission),
     submissionsDeleted: [...deleted.submissions],
     updatedAt: new Date().toISOString()
   });
@@ -2748,6 +2754,8 @@ function editSubmission(index) {
       jpc: document.getElementById("m_jpc").value.trim(),
       role: document.getElementById("m_role").value.trim(),
       candidateName: document.getElementById("m_cand").value.trim() || "Candidate",
+      phone: document.getElementById("m_phone").value.trim(),
+      email: document.getElementById("m_email").value.trim(),
       recruiterName: document.getElementById("m_rec").value.trim(),
       submissionDate: parseSubDateInput(document.getElementById("m_date").value),
       currentStatus: document.getElementById("m_status").value,
@@ -2757,7 +2765,12 @@ function editSubmission(index) {
       update3: document.getElementById("m_u3").value.trim()
     };
     if (isNew) state.submissions.push(next);
-    else state.submissions[index] = next;
+    else {
+      const oldKey = keySubmission(state.submissions[index]);
+      const newKey = keySubmission(next);
+      if (oldKey !== newKey) markDeleted("submissions", oldKey);
+      state.submissions[index] = next;
+    }
     markTouched("submissions", keySubmission(next));
     closeModal();
     refresh({ push: true });
@@ -2865,7 +2878,12 @@ function editAvailability(index) {
       slots: slots.length ? slots : []
     };
     if (isNew) state.availability.push(next);
-    else state.availability[index] = next;
+    else {
+      const oldKey = keyAvailability(state.availability[index]);
+      const newKey = keyAvailability(next);
+      if (oldKey !== newKey) markDeleted("availability", oldKey);
+      state.availability[index] = next;
+    }
     markTouched("availability", keyAvailability(next));
     closeModal();
     refresh({ push: true });
@@ -2918,7 +2936,12 @@ function editScheduled(index) {
       status: document.getElementById("m_s").value
     };
     if (isNew) state.scheduled.push(next);
-    else state.scheduled[index] = next;
+    else {
+      const oldKey = keyScheduled(state.scheduled[index]);
+      const newKey = keyScheduled(next);
+      if (oldKey !== newKey) markDeleted("scheduled", oldKey);
+      state.scheduled[index] = next;
+    }
     markTouched("scheduled", keyScheduled(next));
     closeModal();
     refresh({ push: true });
@@ -3450,24 +3473,21 @@ document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep
 
 document.getElementById("sheetUrl").value = sheetUrl();
 document.getElementById("remindMins").value = remindMins();
-document.getElementById("saveSettingsBtn").onclick = () => {
-  const url = document.getElementById("sheetUrl").value.trim();
+document.getElementById("saveSettingsBtn").onclick = async () => {
+  const input = document.getElementById("sheetUrl");
+  const url = ((input && input.value.trim()) || (DEFAULT_SHEET_URL || "").trim());
   localStorage.setItem("emb_remind", String(parseInt(document.getElementById("remindMins").value, 10) || 10));
   if (!url) {
-    // Clear portal local data only — sheet is not touched
     localStorage.removeItem("emb_sheet_url");
-    state = { availability: [], scheduled: [], submissions: [] };
-    clearSyncMarks();
-    persist();
-    refresh();
     setSyncUI(false, "Not connected");
-    toast("URL cleared — local portal data removed (sheet unchanged)", "link_off");
+    toast("Web App URL is required", "link_off");
     return;
   }
   localStorage.setItem("emb_sheet_url", url);
-  toast("Saved", "check");
-  setSyncUI(true, "Connected");
-  pullFromSheet();
+  if (input) input.value = url;
+  setSyncUI(null, "Pulling first…");
+  await pullFromSheet(false);
+  startAutoPull();
 };
 
 document.getElementById("saveConfigBtn").onclick = () => saveConfigToSheet();
@@ -3593,25 +3613,34 @@ updateUserBadge();
 fillConfigTextareas();
 
 // Sync URL field with storage / DEFAULT_SHEET_URL
+// First load / refresh: persist DEFAULT_SHEET_URL automatically when no saved URL exists.
 (function () {
   const el = document.getElementById("sheetUrl");
-  const u = sheetUrl();
+  let saved = (localStorage.getItem("emb_sheet_url") || "").trim();
+  const fallback = (DEFAULT_SHEET_URL || "").trim();
+  if (!saved && fallback) {
+    saved = fallback;
+    localStorage.setItem("emb_sheet_url", saved);
+  }
   if (el) {
-    if (u && !el.value) el.value = u;
-    // If user previously typed URL in the box but never saved, pick it up
-    if (!u && el.value && el.value.trim()) {
-      localStorage.setItem("emb_sheet_url", el.value.trim());
-    }
+    el.value = saved || el.value || fallback;
+    if (el.value.trim()) localStorage.setItem("emb_sheet_url", el.value.trim());
   }
 })();
 
 try { refresh(); } catch (e) { console.error("refresh", e); }
 showLogin(false);
 
-if (sheetUrl()) {
-  setSyncUI(true, "Connecting…");
-  pullFromSheet(true).then(() => setSyncUI(true, "Live")).catch(() => {});
-  startAutoPull();
+const startupSheetUrl = sheetUrl();
+if (startupSheetUrl) {
+  setSyncUI(null, "Connecting…");
+  pullFromSheet(true).then(() => {
+    setSyncUI(true, "Live");
+    startAutoPull();
+  }).catch(() => {
+    setSyncUI(false, "Pull failed");
+    startAutoPull();
+  });
 } else {
   setSyncUI(false, "Not connected — save Web App URL");
 }
