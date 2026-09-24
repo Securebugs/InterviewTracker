@@ -294,6 +294,17 @@
   .empty-state p { font-size: 14px; margin-bottom: 16px; }
 
   .sched-list { display: flex; flex-direction: column; gap: 10px; }
+  .sched-header {
+    display: grid; grid-template-columns: 1fr 180px 180px 180px 140px 80px; gap: 12px;
+    align-items: center; padding: 8px 16px; color: var(--muted); font-size: 11px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .sched-header .actions-head { text-align: center; }
+  .sub-result-count {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 7px 11px; border-radius: 999px; white-space: nowrap;
+  }
 
   .sched-row {
     display: grid;
@@ -574,6 +585,7 @@
   .sub-table tr:hover td { background: #faf8f4; }
   .sub-table .jpc { font-weight: 700; white-space: nowrap; }
   .sub-table .role-cell { max-width: 200px; }
+  .sub-table .contact-cell { max-width: 220px; word-break: break-word; }
   .sub-table .update-cell { max-width: 260px; font-size: 12px; color: #44403c; }
   .status-chip {
     display: inline-flex; padding: 4px 10px; border-radius: 999px;
@@ -724,6 +736,7 @@
     display: flex; align-items: center; gap: 8px;
   }
   .dash-card h3 .material-symbols-outlined { font-size: 18px; color: var(--text); }
+  #jpcBars { max-height: 360px; overflow-y: auto; padding-right: 4px; }
 
   .status-list { display: flex; flex-direction: column; gap: 10px; }
   .status-row {
@@ -1001,6 +1014,9 @@
           </button>
         </div>
       </div>
+      <div class="section-head" style="margin-top:0">
+        <h2>Available candidates</h2><span class="pill">Role · Candidate · Recruiter · BDM · Slots</span>
+      </div>
       <div id="availabilityMount"></div>
     </section>
 
@@ -1018,6 +1034,9 @@
             <span class="material-symbols-outlined">cloud_upload</span> Sync to sheet
           </button>
         </div>
+      </div>
+      <div class="sched-header">
+        <div>Candidate</div><div>Role</div><div>Recruiter</div><div>Interview Time</div><div>Status</div><div class="actions-head">Actions</div>
       </div>
       <div class="sched-list" id="schedList"></div>
     </section>
@@ -1046,6 +1065,7 @@
         <input type="date" id="subFilterDateFrom" title="From date">
         <input type="date" id="subFilterDateTo" title="To date">
         <button type="button" class="btn btn-sm" id="subFilterClear">Clear filters</button>
+        <span class="sub-result-count" id="subResultCount">0 results</span>
       </div>
       <div class="sub-table-wrap" id="subTableWrap"></div>
     </section>
@@ -1237,6 +1257,39 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 let users = []; // filled only from Management sheet on pull/login
 let currentUser = null; // { name, role }
 
+// Keep the UI backward-compatible with older locally cached records while using
+// the new column structure for all newly edited/exported records.
+function normalizeRecordFields() {
+  state.availability = (state.availability || []).map(r => ({
+    role: r.role || "General",
+    name: r.name || r.candidate || "",
+    recruiter: r.recruiter || r.recruiterName || "",
+    bdm: r.bdm || "",
+    slots: Array.isArray(r.slots) ? r.slots : []
+  }));
+  state.scheduled = (state.scheduled || []).map(r => ({
+    candidate: r.candidate || r.name || "",
+    role: r.role || "",
+    recruiter: r.recruiter || r.recruiterName || "",
+    when: r.when || r.interviewTime || "",
+    status: r.status || ""
+  }));
+  state.submissions = (state.submissions || []).map(r => ({
+    jpc: r.jpc || "",
+    role: r.role || "",
+    candidateName: r.candidateName || r.candidate || "",
+    phone: r.phone || r.mobile || "",
+    email: r.email || "",
+    recruiterName: r.recruiterName || r.recruiter || "",
+    submissionDate: r.submissionDate || "",
+    currentStatus: r.currentStatus || r.status || "Submitted",
+    bdm: r.bdm || "",
+    update1: r.update1 || "",
+    update2: r.update2 || "",
+    update3: r.update3 || ""
+  }));
+}
+
 // Alert "already fired" keys — must exist before any refresh/scheduleReminders
 let fired;
 try {
@@ -1261,6 +1314,7 @@ try {
   const us = localStorage.getItem("emb_users_v1");
   if (us) users = JSON.parse(us);
 } catch (_) {}
+normalizeRecordFields();
 
 function normName(s) {
   return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -1537,7 +1591,10 @@ function renderAvailability() {
           <div class="cand-card-head">
             <div>
               <h3>${esc(c.name)}</h3>
-              <div class="role-tag">${slots.length} slot${slots.length === 1 ? "" : "s"}</div>
+              <div class="role-tag">${esc(c.role || "General")} · ${slots.length} slot${slots.length === 1 ? "" : "s"}</div>
+              <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">
+                ${namePill(c.recruiter, "rec")} ${namePill(c.bdm, "bdm")}
+              </div>
             </div>
           </div>
           <div class="cand-card-body">${chips}</div>
@@ -1577,8 +1634,8 @@ function renderScheduled() {
     <div class="sched-row">
       <div>
         <div class="name">${esc(r.candidate)}</div>
-        <div class="meta">Interview</div>
       </div>
+      <div class="meta">${esc(r.role || "—")}</div>
       <div class="meta">${esc(r.recruiter || "—")}</div>
       <div style="font-weight:600;font-size:13px">${esc(r.when || "—")}</div>
       <div>${badge(r.status)}</div>
@@ -1859,7 +1916,7 @@ function renderStats() {
     const j = (r.jpc || "—").trim() || "—";
     jpcCount[j] = (jpcCount[j] || 0) + 1;
   });
-  const jpcEntries = Object.entries(jpcCount).sort((x, y) => y[1] - x[1]).slice(0, 12);
+  const jpcEntries = Object.entries(jpcCount).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], undefined, { sensitivity: "base" }));
   const maxJ = Math.max(1, ...jpcEntries.map(e => e[1]), 1);
   const jpcEl = document.getElementById("jpcBars");
   if (jpcEl) {
@@ -1914,6 +1971,7 @@ function clearSyncMarks() {
 }
 
 function refresh(opts) {
+  normalizeRecordFields();
   opts = opts || {};
   renderAvailability();
   renderScheduled();
@@ -1987,6 +2045,7 @@ function applyRemoteJson(json) {
   if (Array.isArray(json.availability)) state.availability = json.availability.slice();
   if (Array.isArray(json.scheduled)) state.scheduled = json.scheduled.slice();
   if (Array.isArray(json.submissions)) state.submissions = json.submissions.slice();
+  normalizeRecordFields();
 
   if (hasPending) {
     if (deleted.availability.size) {
@@ -2536,7 +2595,7 @@ function filteredSubmissions() {
       if (toD && sd > toD) return false;
     }
     if (!q) return true;
-    const blob = [r.jpc, r.role, r.candidateName, r.recruiterName, r.bdm, r.update1, r.update2, r.update3, r.submissionDate, r.currentStatus]
+    const blob = [r.jpc, r.role, r.candidateName, r.phone, r.email, r.recruiterName, r.bdm, r.update1, r.update2, r.update3, r.submissionDate, r.currentStatus]
       .join(" ").toLowerCase();
     return blob.includes(q);
   });
@@ -2561,7 +2620,10 @@ function renderSubmissions() {
   if (!wrap) return;
   rebuildSubFilterOptions();
   const rows = filteredSubmissions();
+  const countEl = document.getElementById("subResultCount");
+  if (countEl) countEl.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}`;
   if (!state.submissions.length) {
+    if (countEl) countEl.textContent = "0 results";
     wrap.innerHTML = `<div class="empty-state">${icon("table_chart")}<p>No submission rows yet. Add a row or pull from the sheet.</p>
       <button type="button" class="btn btn-dark" id="emptyAddSub">${icon("add")} Add row</button></div>`;
     const btn = document.getElementById("emptyAddSub");
@@ -2577,8 +2639,10 @@ function renderSubmissions() {
       <tr>
         <th>JPC</th>
         <th>Role</th>
-        <th>Candidate</th>
-        <th>Recruiter</th>
+        <th>Candidate Name</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>Recruiter Name</th>
         <th>Submission Date</th>
         <th>Status</th>
         <th>BDM</th>
@@ -2595,6 +2659,8 @@ function renderSubmissions() {
           <td class="jpc">${namePill(r.jpc, "jpc")}</td>
           <td class="role-cell">${esc(r.role)}</td>
           <td>${namePill(r.candidateName, "cand", r.recruiterName)}</td>
+          <td class="contact-cell">${esc(r.phone || "—")}</td>
+          <td class="contact-cell">${esc(r.email || "—")}</td>
           <td>${namePill(r.recruiterName, "rec")}</td>
           <td style="white-space:nowrap">${esc(r.submissionDate)}</td>
           <td>${statusChip(r.currentStatus)}</td>
@@ -2639,7 +2705,7 @@ function subDateToInput(str) {
 function editSubmission(index) {
   const isNew = index < 0;
   const row = isNew ? {
-    jpc: "", role: "", candidateName: "", recruiterName: "",
+    jpc: "", role: "", candidateName: "", phone: "", email: "", recruiterName: "",
     submissionDate: "", currentStatus: "Submitted", bdm: "",
     update1: "", update2: "", update3: ""
   } : { ...state.submissions[index] };
@@ -2652,6 +2718,10 @@ function editSubmission(index) {
     <input id="m_role" value="${esc(row.role)}" placeholder="Role title">
     <label>Candidate Name</label>
     <input id="m_cand" value="${esc(row.candidateName)}">
+    <label>Phone</label>
+    <input id="m_phone" type="tel" value="${esc(row.phone)}" placeholder="Phone number">
+    <label>Email</label>
+    <input id="m_email" type="email" value="${esc(row.email)}" placeholder="Email address">
     <label>Recruiter Name</label>
     <select id="m_rec">${optionList(config.recruiters, row.recruiterName || (currentUser && currentUser.name) || "")}</select>
     <label>Submission Date</label>
@@ -2697,7 +2767,7 @@ function editSubmission(index) {
 function editAvailability(index) {
   const isNew = index < 0;
   const row = isNew
-    ? { role: "", name: "", slots: [""] }
+    ? { role: "", name: "", recruiter: "", bdm: "", slots: [""] }
     : JSON.parse(JSON.stringify(state.availability[index]));
   if (!row.slots || !row.slots.length) row.slots = [""];
 
@@ -2736,6 +2806,10 @@ function editAvailability(index) {
     <input id="m_role" value="${esc(row.role)}" placeholder="e.g. AI/ML Security Engineer">
     <label>Candidate name</label>
     <input id="m_name" value="${esc(row.name)}" placeholder="Full name">
+    <label>Recruiter</label>
+    <select id="m_rec">${optionList(config.recruiters, row.recruiter || (currentUser && currentUser.name) || "")}</select>
+    <label>BDM</label>
+    <select id="m_bdm">${optionList(config.bdms, row.bdm || "")}</select>
     <label>Availability slots</label>
     <div id="m_slots">${renderBlocks()}</div>
     <button type="button" class="btn btn-sm" id="m_add_slot" style="margin-top:4px">
@@ -2786,6 +2860,8 @@ function editAvailability(index) {
     const next = {
       role: document.getElementById("m_role").value.trim() || "General",
       name: document.getElementById("m_name").value.trim() || "Unnamed",
+      recruiter: document.getElementById("m_rec").value.trim(),
+      bdm: document.getElementById("m_bdm").value.trim(),
       slots: slots.length ? slots : []
     };
     if (isNew) state.availability.push(next);
@@ -2799,7 +2875,7 @@ function editAvailability(index) {
 function editScheduled(index) {
   const isNew = index < 0;
   const row = isNew
-    ? { candidate: "", recruiter: "", when: "", status: "" }
+    ? { candidate: "", role: "", recruiter: "", when: "", status: "" }
     : { ...state.scheduled[index] };
 
   const ts = parseWhen(row.when);
@@ -2810,6 +2886,8 @@ function editScheduled(index) {
     <h3>${icon(isNew ? "add" : "edit")} ${isNew ? "Add interview" : "Edit interview"}</h3>
     <label>Candidate</label>
     <input id="m_c" value="${esc(row.candidate)}" placeholder="Name">
+    <label>Role</label>
+    <input id="m_role" value="${esc(row.role)}" placeholder="Role title">
     <label>Recruiter</label>
     <select id="m_r">${optionList(config.recruiters, row.recruiter || (currentUser && currentUser.name) || "")}</select>
     <label>Interview date</label>
@@ -2834,6 +2912,7 @@ function editScheduled(index) {
     const d = fromInputs(document.getElementById("m_date").value, document.getElementById("m_time").value);
     const next = {
       candidate: document.getElementById("m_c").value.trim() || "Candidate",
+      role: document.getElementById("m_role").value.trim(),
       recruiter: document.getElementById("m_r").value.trim(),
       when: d ? formatInterviewWhen(d) : "",
       status: document.getElementById("m_s").value
@@ -3175,31 +3254,33 @@ async function downloadAdminExcel() {
     const XLSX = await loadXlsxLibrary();
     const wb = XLSX.utils.book_new();
 
-    const subHeaders = ["JPC","Role","Candidate","Recruiter","Submission Date","Status","BDM","Update 1","Update 2","Update 3"];
+    const subHeaders = ["JPC","Role","Candidate Name","Phone","Email","Recruiter Name","Submission Date","Current Status","BDM","Update 1","Update 2","Update 3"];
     const subRows = (state.submissions || []).map(r => [
-      excelSafe(r.jpc), excelSafe(r.role), excelSafe(r.candidateName), excelSafe(r.recruiterName),
+      excelSafe(r.jpc), excelSafe(r.role), excelSafe(r.candidateName), excelSafe(r.phone), excelSafe(r.email), excelSafe(r.recruiterName),
       excelSafe(r.submissionDate), excelSafe(r.currentStatus), excelSafe(r.bdm),
       excelSafe(r.update1), excelSafe(r.update2), excelSafe(r.update3)
     ]);
     const wsSub = buildExcelSheet(XLSX, subHeaders, subRows, [14,22,24,18,16,14,16,28,28,28]);
     XLSX.utils.book_append_sheet(wb, wsSub, "Submissions");
 
-    const intHeaders = ["Candidate","Recruiter","Interview Time","Status"];
+    const intHeaders = ["Candidate","Role","Recruiter","Interview Time","Status"];
     const intRows = (state.scheduled || []).map(r => [
-      excelSafe(r.candidate), excelSafe(r.recruiter), excelSafe(r.when), excelSafe(r.status || "Pending")
+      excelSafe(r.candidate), excelSafe(r.role), excelSafe(r.recruiter), excelSafe(r.when), excelSafe(r.status || "Pending")
     ]);
-    const wsInt = buildExcelSheet(XLSX, intHeaders, intRows, [24,18,22,14]);
+    const wsInt = buildExcelSheet(XLSX, intHeaders, intRows, [24,22,18,22,14]);
     XLSX.utils.book_append_sheet(wb, wsInt, "Interviews");
 
     const availability = state.availability || [];
     const maxSlots = availability.reduce((m, r) => Math.max(m, (r.slots || []).length), 0);
-    const slotHeaders = ["Role","Candidate"].concat(Array.from({ length: maxSlots }, (_, i) => "Slot " + (i + 1)));
+    const slotHeaders = ["Role","Candidate","Recruiter","BDM"].concat(Array.from({ length: maxSlots }, (_, i) => "Slot " + (i + 1)));
     const slotRows = availability.map(r => [
       excelSafe(r.role || "General"),
       excelSafe(r.name),
+      excelSafe(r.recruiter),
+      excelSafe(r.bdm),
       ...Array.from({ length: maxSlots }, (_, i) => excelSafe((r.slots || [])[i]))
     ]);
-    const wsSlots = buildExcelSheet(XLSX, slotHeaders, slotRows, [22, 24].concat(Array.from({ length: maxSlots }, () => 20)));
+    const wsSlots = buildExcelSheet(XLSX, slotHeaders, slotRows, [22, 24, 18, 18].concat(Array.from({ length: maxSlots }, () => 20)));
     XLSX.utils.book_append_sheet(wb, wsSlots, "Availability");
 
     const now = new Date();
