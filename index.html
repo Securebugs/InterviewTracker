@@ -749,6 +749,26 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
+  /* Interview Status: one scroll area for the complete pie + legend + bars. */
+  .dash-card .dash-card-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-right: 4px;
+  }
+  .dash-card .dash-card-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+  .interview-status-scroll .chart-wrap {
+    overflow: visible;
+    min-height: 180px;
+    align-items: center;
+  }
   .dash-card > :not(h3)::-webkit-scrollbar {
     width: 0;
     height: 0;
@@ -998,11 +1018,13 @@
       <div class="dash-row">
         <div class="dash-card">
           <h3><span class="material-symbols-outlined">donut_large</span> Interview status</h3>
-          <div class="chart-wrap">
-            <div id="statusPie"></div>
-            <div class="legend" id="statusLegend"></div>
+          <div class="dash-card-scroll interview-status-scroll">
+            <div class="chart-wrap">
+              <div id="statusPie"></div>
+              <div class="legend" id="statusLegend"></div>
+            </div>
+            <div class="status-list" id="statusBars" style="margin-top:18px"></div>
           </div>
-          <div class="status-list" id="statusBars" style="margin-top:18px"></div>
         </div>
         <div class="dash-card">
           <h3><span class="material-symbols-outlined">group</span> Recruiter performance</h3>
