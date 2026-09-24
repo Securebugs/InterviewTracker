@@ -308,7 +308,7 @@
 
   .sched-row {
     display: grid;
-    grid-template-columns: 1fr 120px 180px 140px auto;
+    grid-template-columns: 1fr 120px 180px 180px 140px 80px;
     gap: 12px;
     align-items: center;
     background: var(--surface);
@@ -1986,9 +1986,20 @@ function refresh(opts) {
 
 /* ---------- Sheet sync (multi-user patch) ---------- */
 function sheetUrl() {
-  const local = (localStorage.getItem("emb_sheet_url") || "").trim();
-  if (local) return local;
+  // The URL is controlled by the deployed HTML source. Never use an older
+  // localStorage URL after the DEFAULT_SHEET_URL constant has been changed.
   return (DEFAULT_SHEET_URL || "").trim();
+}
+
+function syncDefaultSheetUrl() {
+  const url = (DEFAULT_SHEET_URL || "").trim();
+  const input = document.getElementById("sheetUrl");
+  try {
+    if (url) localStorage.setItem("emb_sheet_url", url);
+    else localStorage.removeItem("emb_sheet_url");
+  } catch (_) {}
+  if (input) input.value = url;
+  return url;
 }
 function setSyncUI(ok, msg) {
   const dot = document.getElementById("syncDot");
@@ -2099,18 +2110,16 @@ function queueSync() {
 
 async function postStateToSheet(payload) {
   const url = sheetUrl();
+  // Send exactly one request. Do not also send a sendBeacon request because
+  // that can duplicate the same add/edit/delete operation.
   await fetchWithTimeout(url, {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: payload,
-    redirect: "follow"
+    redirect: "follow",
+    cache: "no-store"
   }, 25000);
-  try {
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([payload], { type: "text/plain;charset=utf-8" }));
-    }
-  } catch (_) {}
 }
 
 function recordsForTouched(kind, keyFn) {
@@ -3471,11 +3480,13 @@ document.getElementById("enableNotifyBtn").onclick = enableAlerts;
 document.getElementById("enableNotifyBtn2").onclick = enableAlerts;
 document.getElementById("testBeepBtn").onclick = () => { playBeep(); toast("Beep played", "volume_up"); };
 
-document.getElementById("sheetUrl").value = sheetUrl();
+syncDefaultSheetUrl();
 document.getElementById("remindMins").value = remindMins();
 document.getElementById("saveSettingsBtn").onclick = async () => {
   const input = document.getElementById("sheetUrl");
-  const url = ((input && input.value.trim()) || (DEFAULT_SHEET_URL || "").trim());
+  // Always use the URL compiled into this HTML. Ignore any stale value
+  // previously stored by an older deployment.
+  const url = syncDefaultSheetUrl();
   localStorage.setItem("emb_remind", String(parseInt(document.getElementById("remindMins").value, 10) || 10));
   if (!url) {
     localStorage.removeItem("emb_sheet_url");
@@ -3612,21 +3623,9 @@ if (currentUser) {
 updateUserBadge();
 fillConfigTextareas();
 
-// Sync URL field with storage / DEFAULT_SHEET_URL
-// First load / refresh: persist DEFAULT_SHEET_URL automatically when no saved URL exists.
-(function () {
-  const el = document.getElementById("sheetUrl");
-  let saved = (localStorage.getItem("emb_sheet_url") || "").trim();
-  const fallback = (DEFAULT_SHEET_URL || "").trim();
-  if (!saved && fallback) {
-    saved = fallback;
-    localStorage.setItem("emb_sheet_url", saved);
-  }
-  if (el) {
-    el.value = saved || el.value || fallback;
-    if (el.value.trim()) localStorage.setItem("emb_sheet_url", el.value.trim());
-  }
-})();
+// On every page load / refresh, the URL from DEFAULT_SHEET_URL is authoritative.
+// This intentionally replaces any URL saved by an older HTML deployment.
+syncDefaultSheetUrl();
 
 try { refresh(); } catch (e) { console.error("refresh", e); }
 showLogin(false);
