@@ -295,11 +295,13 @@
 
   .sched-list { display: flex; flex-direction: column; gap: 10px; }
   .sched-header {
-    display: grid; grid-template-columns: 1fr 180px 180px 180px 140px 80px; gap: 12px;
+    display: grid; grid-template-columns: minmax(180px, 1fr) 180px 180px 180px 140px 80px; gap: 12px;
     align-items: center; padding: 8px 16px; color: var(--muted); font-size: 11px;
     font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    text-align: left;
   }
-  .sched-header .actions-head { text-align: center; }
+  .sched-header > div { text-align: left; white-space: nowrap; }
+  .sched-header .actions-head { text-align: left; }
   .sub-result-count {
     font-size: 12px; font-weight: 700; color: var(--muted);
     background: var(--surface2); border: 1px solid var(--border);
@@ -308,7 +310,7 @@
 
   .sched-row {
     display: grid;
-    grid-template-columns: 1fr 120px 180px 180px 140px 80px;
+    grid-template-columns: minmax(180px, 1fr) 180px 180px 180px 140px 80px;
     gap: 12px;
     align-items: center;
     background: var(--surface);
@@ -585,7 +587,8 @@
   .sub-table tr:hover td { background: #faf8f4; }
   .sub-table .jpc { font-weight: 700; white-space: nowrap; }
   .sub-table .role-cell { max-width: 200px; }
-  .sub-table .contact-cell { max-width: 220px; word-break: break-word; }
+  .sub-table .contact-cell { max-width: 220px; word-break: normal; overflow-wrap: normal; white-space: nowrap; }
+  .sub-table td.phone-cell, .sub-table td.email-cell { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
   .sub-table .update-cell { max-width: 260px; font-size: 12px; color: #44403c; }
   .status-chip {
     display: inline-flex; padding: 4px 10px; border-radius: 999px;
@@ -1063,9 +1066,6 @@
           </button>
         </div>
       </div>
-      <div class="section-head" style="margin-top:0">
-        <h2>Available candidates</h2><span class="pill">Role · Candidate · Recruiter · BDM · Slots</span>
-      </div>
       <div id="availabilityMount"></div>
     </section>
 
@@ -1254,7 +1254,7 @@
       <h3><span class="material-symbols-outlined">person</span> Welcome</h3>
     </div>
     <div class="alert-popup-body">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Enter your name to continue. Role comes from the <strong>Management</strong> sheet (Admin or User). New names are added as User.</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Enter your name to continue.</p>
       <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">Your name</label>
       <input type="text" id="loginNameInput" placeholder="e.g. Nitish" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg)">
     </div>
